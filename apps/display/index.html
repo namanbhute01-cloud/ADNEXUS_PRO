@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Naart-E Display</title>
+  <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 100vw; height: 100vh;
+      background: #000;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+    #media-container {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    video, img {
+      max-width: 100%; max-height: 100%;
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+    #logo-screen {
+      display: flex; align-items: center; justify-content: center;
+      width: 100%; height: 100%;
+      background: #0a0a0a;
+    }
+    #logo-screen img { max-width: 300px; object-fit: contain; }
+    #status {
+      position: fixed; bottom: 8px; right: 8px;
+      font-size: 11px; color: rgba(255,255,255,0.3);
+      z-index: 999;
+    }
+  </style>
+</head>
+<body>
+  <div id="media-container">
+    <div id="logo-screen">
+      <img src="/logo.png" alt="Naart-E" />
+    </div>
+  </div>
+  <div id="status">Connecting...</div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search)
+    const SERIAL = params.get('serial')
+    const SUB_SERIAL = params.get('sub')
+    const API_BASE = params.get('api') || 'https://app.naarte.in'
+    const PUSHER_KEY = '__PUSHER_KEY__'
+    const PUSHER_CLUSTER = '__PUSHER_CLUSTER__'
+
+    let playlist = []
+    let currentIndex = 0
+
+    const container = document.getElementById('media-container')
+    const statusEl = document.getElementById('status')
+
+    async function fetchContent() {
+      try {
+        const res = await fetch(`${API_BASE}/api/display/content`, {
+          headers: {
+            'X-Serial': SERIAL,
+            'X-SubSerial': SUB_SERIAL,
+          }
+        })
+        if (!res.ok) { showLogo(); return }
+        const data = await res.json()
+        if (data.playlist && data.playlist.length > 0) {
+          loadPlaylist(data.playlist)
+        } else {
+          showLogo()
+        }
+      } catch (e) {
+        showLogo()
+      }
+    }
+
+    const pusher = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER })
+    const channel = pusher.subscribe(`tv-${SERIAL}-${SUB_SERIAL}`)
+
+    channel.bind('content-update', (data) => {
+      statusEl.textContent = 'Content updated'
+      loadPlaylist(data.playlist)
+    })
+
+    channel.bind('clear-content', () => {
+      playlist = []
+      showLogo()
+    })
+
+    pusher.connection.bind('connected', () => statusEl.textContent = `Online · ${SUB_SERIAL}`)
+    pusher.connection.bind('disconnected', () => statusEl.textContent = 'Reconnecting...')
+
+    function loadPlaylist(items) {
+      playlist = items.sort((a, b) => a.order - b.order)
+      currentIndex = 0
+      playNext()
+    }
+
+    function playNext() {
+      if (!playlist.length) { showLogo(); return }
+      const item = playlist[currentIndex % playlist.length]
+      currentIndex++
+      playItem(item)
+    }
+
+    function playItem(item) {
+      container.innerHTML = ''
+      if (item.type === 'VIDEO') {
+        const v = document.createElement('video')
+        v.src = item.url
+        v.autoplay = true
+        v.playsInline = true
+        v.onended = playNext
+        v.onerror = playNext
+        container.appendChild(v)
+      } else {
+        const img = document.createElement('img')
+        img.src = item.url
+        img.alt = ''
+        img.onerror = playNext
+        container.appendChild(img)
+        setTimeout(playNext, (item.duration || 10) * 1000)
+      }
+    }
+
+    function showLogo() {
+      container.innerHTML = `<div id="logo-screen"><img src="/logo.png" alt="Naart-E" /></div>`
+    }
+
+    function sendHeartbeat() {
+      fetch(`${API_BASE}/api/display/heartbeat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Serial': SERIAL, 'X-SubSerial': SUB_SERIAL },
+        body: JSON.stringify({ timestamp: Date.now() })
+      }).catch(() => {})
+    }
+
+    fetchContent()
+    sendHeartbeat()
+    setInterval(sendHeartbeat, 60 * 1000)
+    setTimeout(() => location.reload(), 6 * 60 * 60 * 1000)
+  </script>
+</body>
+</html>

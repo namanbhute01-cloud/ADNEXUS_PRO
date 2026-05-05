@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", monospace;
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --background: 220 23% 97%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --primary: 18 89% 56%;
+  --primary-foreground: 24 100% 98%;
+  --secondary: 210 28% 93%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 214 32% 94%;
+  --muted-foreground: 215 16% 42%;
+  --accent: 187 70% 45%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 84% 60%;
+  --border: 214 24% 88%;
+  --input: 214 24% 88%;
+  --ring: 18 89% 56%;
+  --radius: 1rem;
+}
+
+.dark {
+  --background: 222 46% 7%;
+  --foreground: 210 40% 98%;
+  --card: 222 38% 10%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222 38% 10%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 18 89% 60%;
+  --primary-foreground: 222 46% 7%;
+  --secondary: 222 28% 16%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 223 24% 14%;
+  --muted-foreground: 215 20% 70%;
+  --accent: 187 78% 43%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 70% 54%;
+  --border: 222 22% 18%;
+  --input: 222 22% 18%;
+  --ring: 18 89% 60%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    background-image:
+      radial-gradient(circle at top left, rgba(249, 115, 22, 0.12), transparent 28%),
+      radial-gradient(circle at top right, rgba(20, 184, 166, 0.12), transparent 24%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.96));
+    min-height: 100vh;
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(circle at top left, rgba(249, 115, 22, 0.18), transparent 28%),
+      radial-gradient(circle at top right, rgba(20, 184, 166, 0.18), transparent 22%),
+      linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(2, 6, 23, 0.98));
+  }
+}
