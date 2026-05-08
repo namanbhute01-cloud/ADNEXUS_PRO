@@ -172,3 +172,9 @@ model UserSession {
 
   user      User     @relation(fields: [userId], references: [id])
 }
+
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @default(now())
+}

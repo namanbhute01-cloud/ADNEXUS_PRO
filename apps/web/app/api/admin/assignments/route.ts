@@ -11,6 +11,12 @@ const pusher = new Pusher({
   cluster: process.env.PUSHER_CLUSTER!,
 })
 
+function hasPusherConfig() {
+  return [process.env.PUSHER_APP_ID, process.env.PUSHER_KEY, process.env.PUSHER_SECRET, process.env.PUSHER_CLUSTER].every(
+    (value) => value && value.trim() && value !== "dummy",
+  );
+}
+
 export async function POST(req: Request) {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") {
@@ -36,16 +42,51 @@ export async function POST(req: Request) {
 
   // Push real-time update to the TV
   const tv = assignment.tv;
-  await pusher.trigger(
-    `tv-${tv.ev.serialNumber}-${tv.subSerial}`,
-    "content-update",
-    {
-      campaignId: assignment.campaign.id,
-      playlist: await getPlaylistForCampaign(assignment.campaign.id),
-    }
-  );
+  if (hasPusherConfig()) {
+    await pusher.trigger(
+      `tv-${tv.ev.serialNumber}-${tv.subSerial}`,
+      "content-update",
+      {
+        campaignId: assignment.campaign.id,
+        playlist: await getPlaylistForCampaign(assignment.campaign.id),
+      }
+    );
+  }
 
   return NextResponse.json(assignment, { status: 201 });
+}
+
+export async function DELETE(req: Request) {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { id } = await req.json();
+  if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
+
+  const assignment = await prisma.screenAssignment.findUnique({
+    where: { id },
+    include: { tv: { include: { ev: true } } }
+  });
+
+  if (assignment) {
+    await prisma.screenAssignment.delete({ where: { id } });
+
+    // Notify TV that it's unassigned
+    if (hasPusherConfig()) {
+      await pusher.trigger(
+        `tv-${assignment.tv.ev.serialNumber}-${assignment.tv.subSerial}`,
+        "content-update",
+        {
+          campaignId: null,
+          playlist: [],
+        }
+      );
+    }
+  }
+
+  return NextResponse.json({ ok: true });
 }
 
 export async function GET() {

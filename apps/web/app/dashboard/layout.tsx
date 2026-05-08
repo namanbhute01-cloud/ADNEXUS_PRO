@@ -30,7 +30,7 @@ export default async function DashboardLayout({
     <PortalShell
       appName="NAART-E"
       title="Campaigner Console"
-      subtitle="Read-only portal for assigned campaigns, screen status, and currently displayed content across each EV."
+      subtitle="Read-only portal for assigned campaigns, display status, and currently displayed content."
       userName={session.user.name ?? "Campaigner"}
       userRole={session.user.role}
       tone="campaigner"

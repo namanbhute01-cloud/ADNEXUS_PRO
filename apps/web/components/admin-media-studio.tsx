@@ -84,6 +84,7 @@ export function AdminMediaStudio({ media, campaigns }: AdminMediaStudioProps) {
     const { uploadUrl, key } = await uploadMetaResponse.json();
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", uploadUrl);
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
         setProgress(Math.round((event.loaded / event.total) * 100));
@@ -91,6 +92,12 @@ export function AdminMediaStudio({ media, campaigns }: AdminMediaStudioProps) {
     };
 
     xhr.onload = async () => {
+      if (xhr.status < 200 || xhr.status >= 300) {
+        setProgress(0);
+        toast.error(`Upload failed (${xhr.status})`);
+        return;
+      }
+
       const type = file.type.startsWith("video")
         ? "VIDEO"
         : file.type.startsWith("audio")
@@ -123,6 +130,7 @@ export function AdminMediaStudio({ media, campaigns }: AdminMediaStudioProps) {
       toast.error("Upload failed");
     };
 
+    setProgress(1);
     xhr.send(file);
   }
 
@@ -218,7 +226,9 @@ export function AdminMediaStudio({ media, campaigns }: AdminMediaStudioProps) {
               )}
               <p className="mt-4 line-clamp-2 font-medium text-slate-900">{item.originalName}</p>
               <p className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-400">{item.type}</p>
-              <p className="mt-1 text-xs text-slate-500">{new Date(item.createdAt).toLocaleString()}</p>
+              <p className="mt-1 text-xs text-slate-500" suppressHydrationWarning>
+                {new Date(item.createdAt).toLocaleString()}
+              </p>
             </button>
           ))}
         </section>
@@ -326,6 +336,26 @@ export function AdminMediaStudio({ media, campaigns }: AdminMediaStudioProps) {
             <span className="ml-2 font-medium text-slate-900">
               {selectedMedia ? `${selectedMedia.originalName} · ${selectedMedia.type}` : "None"}
             </span>
+            {selectedMedia && (
+              <Button
+                variant="destructive"
+                className="mt-4 h-10 w-full rounded-xl"
+                onClick={async () => {
+                  const res = await fetch("/api/media", {
+                    method: "DELETE",
+                    body: JSON.stringify({ id: selectedMedia.id }),
+                  });
+                  if (res.ok) {
+                    toast.success("Media deleted");
+                    startTransition(() => router.refresh());
+                  } else {
+                    toast.error("Delete failed");
+                  }
+                }}
+              >
+                Delete asset
+              </Button>
+            )}
           </div>
 
           <Button className="h-12 w-full rounded-2xl" disabled={isPending} onClick={attachToCampaign}>

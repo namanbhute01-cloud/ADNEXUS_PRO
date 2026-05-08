@@ -4,12 +4,12 @@ import "./globals.css";
 
 export const metadata = {
   title: "NAART-E CMS",
-  description: "Control center for EV display units, campaigns, media, and live screen playback.",
+  description: "Control center for display units, campaigns, media, and live screen playback.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       <body className="min-h-screen font-sans text-foreground">
         <AuthProvider>
           {children}

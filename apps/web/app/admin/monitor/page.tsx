@@ -1,15 +1,20 @@
 import { prisma } from "@naart/database";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getAppSettings } from "@/lib/app-settings";
 
 export default async function MonitorPage() {
-  const tvs = await prisma.tV.findMany({
-    include: { 
-      ev: true, 
-      heartbeats: { orderBy: { timestamp: "desc" }, take: 1 },
-      assignments: { where: { isActive: true }, include: { campaign: true } }
-    }
-  });
+  const [tvs, settings] = await Promise.all([
+    prisma.tV.findMany({
+      include: {
+        ev: true,
+        heartbeats: { orderBy: { timestamp: "desc" }, take: 1 },
+        assignments: { where: { isActive: true }, include: { campaign: true } },
+      },
+    }),
+    getAppSettings(),
+  ]);
+  const offlineMs = settings.heartbeatOfflineSeconds * 1000;
 
   return (
     <div className="space-y-6">
@@ -21,7 +26,7 @@ export default async function MonitorPage() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {tvs.map((tv) => {
           const lastHeartbeat = tv.heartbeats[0]?.timestamp;
-          const isOnline = lastHeartbeat && new Date().getTime() - lastHeartbeat.getTime() < 120000;
+          const isOnline = lastHeartbeat && new Date().getTime() - lastHeartbeat.getTime() < offlineMs;
           return (
             <Card key={tv.id} className="rounded-[1.5rem] border-slate-200/80 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

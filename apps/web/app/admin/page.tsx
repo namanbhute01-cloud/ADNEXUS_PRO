@@ -2,6 +2,7 @@ import { prisma } from "@naart/database";
 import { Film, LayoutDashboard, Monitor, RadioTower, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getAppSettings } from "@/lib/app-settings";
 
 async function getStats() {
   const [evs, tvs, campaigns, users] = await Promise.all([
@@ -13,30 +14,31 @@ async function getStats() {
   return { evs, tvs, campaigns, users };
 }
 
+async function getLiveTvCount(offlineSeconds: number) {
+  const cutoff = new Date(Date.now() - offlineSeconds * 1000);
+  return prisma.tV.count({
+    where: { heartbeats: { some: { timestamp: { gte: cutoff } } } },
+  });
+}
+
 export default async function AdminDashboardPage() {
-  const [stats, recentCampaigns, onlineTvs] = await Promise.all([
+  const settings = await getAppSettings();
+  const [stats, recentCampaigns, liveCount] = await Promise.all([
     getStats(),
     prisma.campaign.findMany({
       include: { user: { select: { name: true } }, _count: { select: { media: true } } },
       orderBy: { updatedAt: "desc" },
       take: 5,
     }),
-    prisma.tV.findMany({
-      include: { heartbeats: { orderBy: { timestamp: "desc" }, take: 1 }, ev: true },
-    }),
+    getLiveTvCount(settings.heartbeatOfflineSeconds),
   ]);
 
   const cards = [
-    { title: "Active EVs", value: stats.evs, icon: Monitor },
-    { title: "Total TVs", value: stats.tvs, icon: LayoutDashboard },
+    { title: "Display Units", value: stats.evs, icon: Monitor },
+    { title: "Total Displays", value: stats.tvs, icon: LayoutDashboard },
     { title: "Active Campaigns", value: stats.campaigns, icon: Film },
     { title: "Campaigners", value: stats.users, icon: Users },
   ];
-  const liveCount = onlineTvs.filter((tv) => {
-    const heartbeat = tv.heartbeats[0]?.timestamp;
-    return heartbeat && Date.now() - heartbeat.getTime() < 120000;
-  }).length;
-
   return (
     <div className="space-y-8">
       <section className="rounded-[1.75rem] border border-slate-200 bg-[linear-gradient(135deg,#fff7ed,white_44%,#ecfeff)] p-6 shadow-sm md:p-8">
@@ -45,11 +47,11 @@ export default async function AdminDashboardPage() {
             <p className="text-sm font-medium uppercase tracking-[0.28em] text-orange-600">Admin overview</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">Fleet operations at a glance</h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-              Central control for EV boxes, campaign review, screen assignment, and live playback reliability.
+              Central control for display boxes, campaign review, screen assignment, and live playback reliability.
             </p>
           </div>
           <div className="rounded-3xl border border-slate-200 bg-white px-5 py-4">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Live TVs</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Live displays</p>
             <div className="mt-2 flex items-center gap-2">
               <RadioTower className="h-5 w-5 text-emerald-500" />
               <span className="text-3xl font-semibold">{liveCount}</span>

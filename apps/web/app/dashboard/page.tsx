@@ -70,8 +70,8 @@ export default async function DashboardPage() {
     0,
   );
   const stats = [
-    { label: "Assigned EVs", value: evs.length },
-    { label: "Live screens", value: activeAssignments },
+    { label: "Display units", value: evs.length },
+    { label: "Active displays", value: activeAssignments },
     { label: "Campaigns", value: campaigns.length },
     { label: "Media assets", value: media },
   ];
@@ -84,7 +84,7 @@ export default async function DashboardPage() {
           Welcome back, {session.user.name ?? "Campaigner"}.
         </h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          View assigned screens, active campaigns, and approved content. Content editing now stays admin-only, like architecture intent.
+          View assigned displays, active campaigns, and approved content. Content editing stays admin-only.
         </p>
       </section>
 
@@ -132,7 +132,7 @@ export default async function DashboardPage() {
 
         <Card className="rounded-[1.5rem] border-slate-200/80 shadow-sm">
           <CardHeader>
-            <CardTitle>Assigned EVs</CardTitle>
+            <CardTitle>Assigned display units</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {evs.map((ev) => (
@@ -146,12 +146,12 @@ export default async function DashboardPage() {
                     {ev.isActive ? "Active" : "Inactive"}
                   </Badge>
                 </div>
-                <div className="mt-4 grid grid-cols-3 gap-2">
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-[repeat(auto-fit,minmax(120px,1fr))]">
                   {ev.tvs
                     .sort((a, b) => a.screenIndex - b.screenIndex)
                     .map((tv) => (
                       <div key={tv.id} className="rounded-2xl bg-slate-50 p-3 text-center">
-                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Screen {tv.screenIndex}</p>
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Display {tv.screenIndex}</p>
                         <p className="mt-2 text-sm font-medium text-slate-900">
                           {tv.assignments[0]?.campaign.name ?? "Empty"}
                         </p>

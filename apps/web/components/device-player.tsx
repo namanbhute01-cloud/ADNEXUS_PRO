@@ -26,8 +26,6 @@ export function DevicePlayer() {
   const apiBase = params.get("api") || "";
   const [playlist, setPlaylist] = useState<PlaylistItem[]>([]);
   const [status, setStatus] = useState("Waiting for device credentials");
-  const [currentPrimary, setCurrentPrimary] = useState<PlaylistItem | null>(null);
-  const [currentAmbient, setCurrentAmbient] = useState<PlaylistItem | null>(null);
   const [primaryIndex, setPrimaryIndex] = useState(0);
   const ambientMediaRef = useRef<HTMLMediaElement | null>(null);
 
@@ -37,6 +35,19 @@ export function DevicePlayer() {
   );
 
   const baseUrl = apiBase || (typeof window !== "undefined" ? window.location.origin : "");
+
+  const currentAmbient =
+    useMemo(
+      () => playlist.filter((item) => item.playbackLayer === "AMBIENT").sort((a, b) => a.order - b.order)[0] ?? null,
+      [playlist],
+    );
+
+  const primaryItems = useMemo(
+    () => playlist.filter((item) => item.playbackLayer === "PRIMARY").sort((a, b) => a.order - b.order),
+    [playlist],
+  );
+
+  const currentPrimary = primaryItems.length ? primaryItems[primaryIndex % primaryItems.length] : null;
 
   useEffect(() => {
     if (!serial || !subSerial) return;
@@ -95,7 +106,6 @@ export function DevicePlayer() {
     const cluster = (process.env.NEXT_PUBLIC_PUSHER_CLUSTER || "mt1").trim();
 
     if (!key) {
-      setStatus("Missing realtime key");
       return;
     }
 
@@ -122,32 +132,8 @@ export function DevicePlayer() {
     };
   }, [channelName, subSerial]);
 
-  useEffect(() => {
-    const ambient =
-      playlist.filter((item) => item.playbackLayer === "AMBIENT").sort((a, b) => a.order - b.order)[0] ?? null;
-
-    const primaryItems = playlist
-      .filter((item) => item.playbackLayer === "PRIMARY")
-      .sort((a, b) => a.order - b.order);
-
-    setCurrentAmbient(ambient);
-    setPrimaryIndex(0);
-    setCurrentPrimary(primaryItems[0] ?? null);
-  }, [playlist]);
-
   function advancePrimary() {
-    const primaryItems = playlist
-      .filter((item) => item.playbackLayer === "PRIMARY")
-      .sort((a, b) => a.order - b.order);
-
-    if (!primaryItems.length) {
-      setCurrentPrimary(null);
-      return;
-    }
-
-    const nextIndex = (primaryIndex + 1) % primaryItems.length;
-    setPrimaryIndex(nextIndex);
-    setCurrentPrimary(primaryItems[nextIndex]);
+    setPrimaryIndex((index) => (primaryItems.length ? (index + 1) % primaryItems.length : 0));
   }
 
   function applyAmbientVolume(item: PlaylistItem | null, ducked: boolean) {
