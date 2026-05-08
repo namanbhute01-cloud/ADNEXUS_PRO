@@ -3,15 +3,24 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { NextResponse } from "next/server"
 import { v4 as uuid } from "uuid"
+import { getAppSettings } from "@/lib/app-settings"
 
-const r2 = new S3Client({
-  region: "auto",
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-  },
-})
+function isConfigured(value: string | undefined) {
+  return Boolean(value && value.trim() && value !== "dummy")
+}
+
+function hasR2Config() {
+  return (
+    isConfigured(process.env.R2_ACCOUNT_ID) &&
+    isConfigured(process.env.R2_ACCESS_KEY_ID) &&
+    isConfigured(process.env.R2_SECRET_ACCESS_KEY) &&
+    isConfigured(process.env.R2_BUCKET_NAME)
+  )
+}
+
+function safeFilename(filename: string) {
+  return filename.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 140) || "upload"
+}
 
 export async function POST(req: Request) {
   const session = await auth()
@@ -27,7 +36,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "File too large (max 500MB)" }, { status: 400 })
   }
 
-  const key = `media/${session.user.id}/${uuid()}-${filename}`
+  const settings = await getAppSettings()
+
+  if (!hasR2Config() && settings.allowLocalUploads) {
+    const key = `uploads/${session.user.id}/${uuid()}-${safeFilename(filename)}`
+    return NextResponse.json({
+      uploadUrl: `/api/media/local-upload?key=${encodeURIComponent(key)}`,
+      key,
+      storage: "local-dev",
+    })
+  }
+
+  if (!hasR2Config()) {
+    return NextResponse.json({ error: "R2 storage not configured and local uploads disabled" }, { status: 503 })
+  }
+
+  const key = `media/${session.user.id}/${uuid()}-${safeFilename(filename)}`
+
+  const r2 = new S3Client({
+    region: "auto",
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+    },
+  })
 
   const command = new PutObjectCommand({
     Bucket: process.env.R2_BUCKET_NAME!,

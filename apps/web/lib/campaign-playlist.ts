@@ -69,46 +69,32 @@ export async function upsertCampaignMediaSettings(input: {
   duckAmbient: boolean;
   loopPlayback: boolean;
 }) {
-  const advanced = await hasAdvancedPlaybackColumns();
-
-  if (!advanced) {
-    return prisma.campaignMedia.create({
-      data: {
+  return prisma.campaignMedia.upsert({
+    where: {
+      campaignId_mediaId: {
         campaignId: input.campaignId,
         mediaId: input.mediaId,
-        order: input.order,
-        displayTime: input.displayTime,
       },
-    });
-  }
-
-  const rows = await prisma.$queryRaw<{ id: string }[]>`
-    INSERT INTO "CampaignMedia" (
-      "id",
-      "campaignId",
-      "mediaId",
-      "order",
-      "displayTime",
-      "playbackLayer",
-      "volumePercent",
-      "duckAmbient",
-      "loopPlayback"
-    )
-    VALUES (
-      ${randomUUID()},
-      ${input.campaignId},
-      ${input.mediaId},
-      ${input.order},
-      ${input.displayTime},
-      ${input.playbackLayer},
-      ${Math.max(0, Math.min(100, input.volumePercent))},
-      ${input.duckAmbient},
-      ${input.loopPlayback}
-    )
-    RETURNING "id"
-  `;
-
-  return rows[0] ?? null;
+    },
+    update: {
+      order: input.order,
+      displayTime: input.displayTime,
+      playbackLayer: input.playbackLayer,
+      volumePercent: Math.max(0, Math.min(100, input.volumePercent)),
+      duckAmbient: input.duckAmbient,
+      loopPlayback: input.loopPlayback,
+    },
+    create: {
+      campaignId: input.campaignId,
+      mediaId: input.mediaId,
+      order: input.order,
+      displayTime: input.displayTime,
+      playbackLayer: input.playbackLayer,
+      volumePercent: Math.max(0, Math.min(100, input.volumePercent)),
+      duckAmbient: input.duckAmbient,
+      loopPlayback: input.loopPlayback,
+    },
+  });
 }
 
 export async function updateCampaignMediaSettings(input: {
@@ -138,7 +124,7 @@ export async function updateCampaignMediaSettings(input: {
     SET
       "order" = ${input.order},
       "displayTime" = ${input.displayTime},
-      "playbackLayer" = ${input.playbackLayer},
+      "playbackLayer" = ${input.playbackLayer}::"PlaybackLayer",
       "volumePercent" = ${Math.max(0, Math.min(100, input.volumePercent))},
       "duckAmbient" = ${input.duckAmbient},
       "loopPlayback" = ${input.loopPlayback}

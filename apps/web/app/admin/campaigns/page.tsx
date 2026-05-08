@@ -1,6 +1,7 @@
 import { prisma } from "@naart/database";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AdminCampaignCreate } from "@/components/admin-campaign-create";
 
 export default async function CampaignsPage() {
   const campaigns = await prisma.campaign.findMany({
@@ -17,6 +18,8 @@ export default async function CampaignsPage() {
         <p className="text-sm font-medium uppercase tracking-[0.28em] text-orange-600">Campaigns</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">Review queue and active inventory</h1>
       </div>
+
+      <AdminCampaignCreate />
 
       <div className="grid gap-4">
         {campaigns.map((campaign) => (

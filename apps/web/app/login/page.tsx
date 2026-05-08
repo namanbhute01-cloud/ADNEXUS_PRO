@@ -21,12 +21,12 @@ const formSchema = z.object({
 const highlights = [
   {
     title: "Fleet view",
-    description: "Track every EV, every screen, and every live heartbeat from one surface.",
+    description: "Track every display unit, every browser screen, and every live heartbeat from one surface.",
     icon: Monitor,
   },
   {
     title: "Campaign workflow",
-    description: "Upload media, stage playlists, and push assignments into 3-screen display boxes.",
+    description: "Upload media, stage playlists, and push assignments into any screen count.",
     icon: UploadCloud,
   },
   {
@@ -78,7 +78,7 @@ export default function LoginPage() {
           <div className="relative">
             <p className="text-xs uppercase tracking-[0.35em] text-slate-400">NAART-E CMS</p>
             <h1 className="mt-4 max-w-lg text-4xl font-semibold leading-tight md:text-5xl">
-              Outdoor signage control built for 3-screen EV units.
+              Open signage CMS for TVs, projectors, tablets, and kiosks.
             </h1>
             <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300 md:text-base">
               Manage waterproof display boxes, campaign uploads, approval workflow, and live playback from one professional control surface.
