@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Music4, RefreshCcw, UploadCloud, Video, Waves } from "lucide-react";
+import { ImageIcon, Music4, RefreshCcw, UploadCloud, Video } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ type CampaignOption = {
 type AdminMediaStudioProps = {
   media: MediaItem[];
   campaigns: CampaignOption[];
+  defaultImageDuration: number;
 };
 
 type LinkState = {
@@ -40,20 +41,21 @@ type LinkState = {
 const initialLinkState: LinkState = {
   campaignId: "",
   order: 1,
-  displayTime: 10,
+  displayTime: 0,
   playbackLayer: "PRIMARY",
   volumePercent: 100,
   duckAmbient: true,
   loopPlayback: false,
 };
 
-export function AdminMediaStudio({ media, campaigns }: AdminMediaStudioProps) {
+export function AdminMediaStudio({ media, campaigns, defaultImageDuration }: AdminMediaStudioProps) {
   const router = useRouter();
   const [progress, setProgress] = useState(0);
   const [selectedMediaId, setSelectedMediaId] = useState<string>(media[0]?.id ?? "");
   const [linkState, setLinkState] = useState<LinkState>({
     ...initialLinkState,
     campaignId: campaigns[0]?.id ?? "",
+    displayTime: defaultImageDuration,
   });
   const [isPending, startTransition] = useTransition();
 
@@ -68,6 +70,7 @@ export function AdminMediaStudio({ media, campaigns }: AdminMediaStudioProps) {
 
     const uploadMetaResponse = await fetch("/api/media/upload-url", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         filename: file.name,
         contentType: file.type,
@@ -106,6 +109,7 @@ export function AdminMediaStudio({ media, campaigns }: AdminMediaStudioProps) {
 
       const registerResponse = await fetch("/api/media", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           key,
           filename: file.name,
@@ -142,6 +146,7 @@ export function AdminMediaStudio({ media, campaigns }: AdminMediaStudioProps) {
 
     const response = await fetch(`/api/campaigns/${linkState.campaignId}/media`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         mediaId: selectedMedia.id,
         order: linkState.order,
@@ -205,33 +210,42 @@ export function AdminMediaStudio({ media, campaigns }: AdminMediaStudioProps) {
           </section>
         ) : null}
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {media.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setSelectedMediaId(item.id)}
-              className={`rounded-[1.5rem] border p-5 text-left transition ${
-                selectedMediaId === item.id
-                  ? "border-orange-400 bg-orange-50 shadow-sm"
-                  : "border-slate-200 bg-white hover:border-slate-300"
-              }`}
-            >
-              {item.type === "AUDIO" ? (
-                <Music4 className="h-5 w-5 text-cyan-600" />
-              ) : item.type === "VIDEO" ? (
-                <Video className="h-5 w-5 text-orange-600" />
-              ) : (
-                <Waves className="h-5 w-5 text-slate-500" />
-              )}
-              <p className="mt-4 line-clamp-2 font-medium text-slate-900">{item.originalName}</p>
-              <p className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-400">{item.type}</p>
-              <p className="mt-1 text-xs text-slate-500" suppressHydrationWarning>
-                {new Date(item.createdAt).toLocaleString()}
-              </p>
-            </button>
-          ))}
-        </section>
+        {media.length ? (
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {media.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setSelectedMediaId(item.id)}
+                className={`rounded-[1.5rem] border p-5 text-left transition ${
+                  selectedMediaId === item.id
+                    ? "border-orange-400 bg-orange-50 shadow-sm"
+                    : "border-slate-200 bg-white hover:border-slate-300"
+                }`}
+              >
+                {item.type === "AUDIO" ? (
+                  <Music4 className="h-5 w-5 text-cyan-600" />
+                ) : item.type === "VIDEO" ? (
+                  <Video className="h-5 w-5 text-orange-600" />
+                ) : (
+                  <ImageIcon className="h-5 w-5 text-slate-500" />
+                )}
+                <p className="mt-4 line-clamp-2 font-medium text-slate-900">{item.originalName}</p>
+                <p className="mt-2 text-xs uppercase tracking-[0.2em] text-slate-400">{item.type}</p>
+                <p className="mt-1 text-xs text-slate-500" suppressHydrationWarning>
+                  {new Date(item.createdAt).toLocaleString()}
+                </p>
+              </button>
+            ))}
+          </section>
+        ) : (
+          <section className="rounded-[1.75rem] border border-dashed border-slate-300 bg-white p-10 text-center">
+            <p className="text-lg font-semibold text-slate-900">No media uploaded yet</p>
+            <p className="mt-2 text-sm text-slate-500">
+              Drop first image, video, or audio asset above. Then link it into campaign playlist.
+            </p>
+          </section>
+        )}
       </div>
 
       <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
@@ -296,8 +310,16 @@ export function AdminMediaStudio({ media, campaigns }: AdminMediaStudioProps) {
                 min={1}
                 className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4"
                 value={linkState.displayTime}
-                onChange={(event) => setLinkState((current) => ({ ...current, displayTime: Number(event.target.value) || 10 }))}
+                onChange={(event) =>
+                  setLinkState((current) => ({
+                    ...current,
+                    displayTime: Number(event.target.value) || defaultImageDuration,
+                  }))
+                }
               />
+              <span className="mt-2 block text-xs text-slate-500">
+                Default from settings: {defaultImageDuration}s
+              </span>
             </label>
 
             <label className="block text-sm font-medium text-slate-700">
@@ -343,6 +365,7 @@ export function AdminMediaStudio({ media, campaigns }: AdminMediaStudioProps) {
                 onClick={async () => {
                   const res = await fetch("/api/media", {
                     method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ id: selectedMedia.id }),
                   });
                   if (res.ok) {

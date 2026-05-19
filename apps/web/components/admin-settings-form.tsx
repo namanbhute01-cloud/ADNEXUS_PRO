@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Save } from "lucide-react";
 import { toast } from "sonner";
 import type { AppSettings } from "@/lib/app-settings";
@@ -9,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export function AdminSettingsForm({ settings }: { settings: AppSettings }) {
+  const router = useRouter();
   const [form, setForm] = useState(settings);
   const [isPending, startTransition] = useTransition();
 
@@ -32,6 +34,7 @@ export function AdminSettingsForm({ settings }: { settings: AppSettings }) {
     const saved = await response.json();
     setForm(saved);
     toast.success("Settings saved");
+    router.refresh();
   }
 
   return (
@@ -46,7 +49,9 @@ export function AdminSettingsForm({ settings }: { settings: AppSettings }) {
             placeholder="http://192.168.29.79:3000"
             className="h-10"
           />
-          <p className="text-xs text-slate-500">Projectors/tablets use this URL host for generated player links.</p>
+          <p className="text-xs text-slate-500">
+            Use reachable LAN URL for TVs and living-room screens, for example `http://192.168.29.79:3000`.
+          </p>
         </div>
 
         <div className="space-y-2">

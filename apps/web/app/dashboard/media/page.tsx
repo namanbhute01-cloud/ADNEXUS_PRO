@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { prisma } from "@naart/database";
+import { prisma } from "@vaart/database";
 import { Music4, ImageIcon, Video } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 

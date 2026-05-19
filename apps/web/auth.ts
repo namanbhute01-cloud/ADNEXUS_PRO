@@ -1,7 +1,7 @@
 import 'server-only';
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
-import { prisma } from "@naart/database"
+import { prisma } from "@vaart/database"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
 

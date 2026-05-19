@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Pusher from "pusher-js";
@@ -28,6 +29,8 @@ export function DevicePlayer() {
   const [status, setStatus] = useState("Waiting for device credentials");
   const [primaryIndex, setPrimaryIndex] = useState(0);
   const ambientMediaRef = useRef<HTMLMediaElement | null>(null);
+  const primaryMediaRef = useRef<HTMLMediaElement | null>(null);
+  const [audioUnlockNeeded, setAudioUnlockNeeded] = useState(false);
 
   const channelName = useMemo(
     () => (serial && subSerial ? `tv-${serial}-${subSerial}` : null),
@@ -48,6 +51,10 @@ export function DevicePlayer() {
   );
 
   const currentPrimary = primaryItems.length ? primaryItems[primaryIndex % primaryItems.length] : null;
+  const hasAudioMedia = useMemo(
+    () => playlist.some((item) => item.type === "AUDIO" || item.type === "VIDEO"),
+    [playlist],
+  );
 
   useEffect(() => {
     if (!serial || !subSerial) return;
@@ -73,6 +80,7 @@ export function DevicePlayer() {
         const data = await response.json();
         if (!cancelled) {
           setPlaylist(data.playlist ?? []);
+          setPrimaryIndex(0);
           setStatus(`Connected · ${subSerialValue}`);
         }
       } catch {
@@ -114,11 +122,13 @@ export function DevicePlayer() {
 
     channel.bind("content-update", (data: { playlist: PlaylistItem[] }) => {
       setPlaylist(data.playlist ?? []);
+      setPrimaryIndex(0);
       setStatus(`Live update · ${subSerial}`);
     });
 
     channel.bind("clear-content", () => {
       setPlaylist([]);
+      setPrimaryIndex(0);
       setStatus("Playlist cleared");
     });
 
@@ -143,6 +153,22 @@ export function DevicePlayer() {
     element.volume = ducked ? baseVolume * DUCKED_AMBIENT_VOLUME : baseVolume;
   }
 
+  async function tryStartMedia(
+    element: HTMLMediaElement | null,
+    kind: "ambient" | "primary",
+  ) {
+    if (!element) return;
+    try {
+      await element.play();
+      setAudioUnlockNeeded(false);
+    } catch {
+      if (kind === "ambient" || element.volume > 0) {
+        setAudioUnlockNeeded(true);
+        setStatus("Audio blocked by browser policy");
+      }
+    }
+  }
+
   useEffect(() => {
     if (!currentAmbient) return;
     applyAmbientVolume(currentAmbient, false);
@@ -156,6 +182,14 @@ export function DevicePlayer() {
     applyAmbientVolume(currentAmbient, shouldDuck);
     return () => applyAmbientVolume(currentAmbient, false);
   }, [currentAmbient, currentPrimary]);
+
+  useEffect(() => {
+    void tryStartMedia(ambientMediaRef.current, "ambient");
+  }, [currentAmbient?.id]);
+
+  useEffect(() => {
+    void tryStartMedia(primaryMediaRef.current, "primary");
+  }, [currentPrimary?.id]);
 
   if (!serial || !subSerial) {
     return (
@@ -183,6 +217,7 @@ export function DevicePlayer() {
             ambientMediaRef.current = element;
             if (element) {
               element.volume = currentAmbient.volumePercent / 100;
+              element.muted = false;
             }
           }}
           className="absolute inset-0 h-full w-full object-cover opacity-35"
@@ -206,6 +241,7 @@ export function DevicePlayer() {
           src={currentAmbient.url}
           autoPlay
           loop
+          preload="auto"
         />
       ) : null}
 
@@ -226,8 +262,10 @@ export function DevicePlayer() {
             loop={currentPrimary.loopPlayback}
             playsInline
             ref={(element) => {
+              primaryMediaRef.current = element;
               if (element) {
                 element.volume = currentPrimary.volumePercent / 100;
+                element.muted = false;
               }
             }}
             onEnded={advancePrimary}
@@ -240,10 +278,12 @@ export function DevicePlayer() {
             autoPlay
             loop={currentPrimary.loopPlayback}
             ref={(element) => {
+              primaryMediaRef.current = element;
               if (element) {
                 element.volume = currentPrimary.volumePercent / 100;
               }
             }}
+            preload="auto"
             onEnded={advancePrimary}
             onError={advancePrimary}
           />
@@ -251,6 +291,44 @@ export function DevicePlayer() {
           <ImageFrame item={currentPrimary} onDone={advancePrimary} />
         )}
       </div>
+
+      {audioUnlockNeeded ? (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/45 p-6 backdrop-blur-sm">
+          <button
+            type="button"
+            className="rounded-[2rem] border border-white/20 bg-white/10 px-8 py-5 text-center text-white shadow-2xl"
+            onClick={async () => {
+              await Promise.allSettled([
+                tryStartMedia(ambientMediaRef.current, "ambient"),
+                tryStartMedia(primaryMediaRef.current, "primary"),
+              ]);
+            }}
+          >
+            <span className="block text-xs uppercase tracking-[0.35em] text-slate-300">
+              Audio required
+            </span>
+            <span className="mt-3 block text-2xl font-semibold">Start playback with audio</span>
+            <span className="mt-2 block text-sm text-slate-300">
+              Browser blocked autoplay. Tap once to enable video sound.
+            </span>
+          </button>
+        </div>
+      ) : null}
+
+      {!audioUnlockNeeded && hasAudioMedia ? (
+        <button
+          type="button"
+          className="absolute left-4 top-4 z-20 rounded-full border border-white/20 bg-black/55 px-4 py-2 text-xs tracking-[0.2em] text-white backdrop-blur"
+          onClick={async () => {
+            await Promise.allSettled([
+              tryStartMedia(ambientMediaRef.current, "ambient"),
+              tryStartMedia(primaryMediaRef.current, "primary"),
+            ]);
+          }}
+        >
+          Restart audio
+        </button>
+      ) : null}
 
       <div className="absolute bottom-4 right-4 z-20 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-xs tracking-[0.2em] text-slate-200 backdrop-blur">
         {status}
@@ -272,11 +350,13 @@ function ImageFrame({
   }, [item.duration, onDone]);
 
   return (
-    <img
+    <Image
       key={item.id}
       src={item.url}
       alt={item.originalName}
-      className="h-full w-full object-cover"
+      fill
+      unoptimized
+      className="object-cover"
       onError={onDone}
     />
   );

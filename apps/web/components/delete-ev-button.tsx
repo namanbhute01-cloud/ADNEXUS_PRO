@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { buttonVariants } from "@/components/ui/button";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export function DeleteEVButton({ id }: { id: string }) {
   const router = useRouter();
@@ -16,6 +16,7 @@ export function DeleteEVButton({ id }: { id: string }) {
   async function handleDelete() {
     const res = await fetch("/api/admin/display-units", {
       method: "DELETE",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
     if (res.ok) {
@@ -45,9 +46,9 @@ export function DeleteEVButton({ id }: { id: string }) {
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
-          </DialogClose>
+          <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            Cancel
+          </Button>
           <Button variant="destructive" onClick={handleDelete} disabled={isPending}>
             Delete
           </Button>

@@ -28,7 +28,7 @@ export default async function AdminLayout({
 
   return (
     <PortalShell
-      appName="NAART-E"
+      appName="VAART-E"
       title="Operations Control"
       subtitle="Manage display units, approve campaign inventory, assign playlists to browser screens, and monitor playback health in real time."
       userName={session.user.name ?? "Admin"}

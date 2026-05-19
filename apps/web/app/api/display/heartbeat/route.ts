@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { prisma } from "@naart/database"
+import { prisma } from "@vaart/database"
 
 export async function POST(req: Request) {
   const serial = req.headers.get("X-Serial")

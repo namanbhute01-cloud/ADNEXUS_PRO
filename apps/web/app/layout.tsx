@@ -3,7 +3,7 @@ import { AuthProvider } from "@/components/auth-provider";
 import "./globals.css";
 
 export const metadata = {
-  title: "NAART-E CMS",
+  title: "VAART-E CMS",
   description: "Control center for display units, campaigns, media, and live screen playback.",
 };
 

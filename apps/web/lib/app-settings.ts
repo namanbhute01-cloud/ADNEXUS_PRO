@@ -1,4 +1,4 @@
-import { prisma } from "@naart/database";
+import { prisma } from "@vaart/database";
 
 export type AppSettings = {
   heartbeatOfflineSeconds: number;
@@ -9,7 +9,10 @@ export type AppSettings = {
 
 const defaults: AppSettings = {
   heartbeatOfflineSeconds: 120,
-  playerBaseUrl: process.env.NEXT_PUBLIC_PLAYER_BASE_URL || "http://192.168.29.79:3000",
+  playerBaseUrl:
+    process.env.NEXT_PUBLIC_PLAYER_BASE_URL ||
+    process.env.NEXTAUTH_URL ||
+    "http://localhost:3000",
   defaultImageDuration: 10,
   allowLocalUploads: true,
 };
@@ -86,6 +89,45 @@ export async function updateAppSettings(settings: AppSettings) {
       ),
     ),
   );
+}
+
+export function resolvePlayerBaseUrl(
+  settings: AppSettings,
+  fallbackOrigin?: string | null,
+) {
+  const configured = String(settings.playerBaseUrl || "").trim().replace(/\/$/, "");
+  const fallback = String(fallbackOrigin || "").trim().replace(/\/$/, "");
+
+  if (!configured) {
+    return fallback || defaults.playerBaseUrl;
+  }
+
+  try {
+    const configuredUrl = new URL(configured);
+    const configuredHost = configuredUrl.hostname.toLowerCase();
+    const fallbackUrl = fallback ? new URL(fallback) : null;
+    const fallbackHost = fallbackUrl?.hostname.toLowerCase() ?? "";
+
+    if (
+      fallbackUrl &&
+      (configuredHost === "localhost" ||
+        configuredHost === "127.0.0.1" ||
+        configuredHost === "0.0.0.0") &&
+      fallbackHost &&
+      fallbackHost !== "localhost" &&
+      fallbackHost !== "127.0.0.1" &&
+      fallbackHost !== "0.0.0.0"
+    ) {
+      configuredUrl.protocol = fallbackUrl.protocol;
+      configuredUrl.hostname = fallbackUrl.hostname;
+      configuredUrl.port = fallbackUrl.port;
+      return configuredUrl.toString().replace(/\/$/, "");
+    }
+  } catch {
+    return fallback || configured;
+  }
+
+  return configured;
 }
 
 export function playerUrl(settings: AppSettings, serial: string, subSerial: string) {

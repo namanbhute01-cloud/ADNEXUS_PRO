@@ -1,4 +1,4 @@
-import { prisma } from "@naart/database";
+import { prisma } from "@vaart/database";
 import { AdminAssignmentManager } from "@/components/admin-assignment-manager";
 
 export default async function AssignmentsPage() {
