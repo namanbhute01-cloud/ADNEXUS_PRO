@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { prisma } from "@naart/database";
+import { prisma } from "@vaart/database";
 import { NextResponse } from "next/server";
 import { unlink } from "fs/promises";
 import path from "path";
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
         ? `/${key}`
         : publicBase && publicBase !== "dummy"
           ? `${publicBase}/${key}`
-          : `https://media.naarte.in/${key}`,
+          : `https://media.vaarte.in/${key}`,
     }
   });
 

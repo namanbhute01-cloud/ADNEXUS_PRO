@@ -1,5 +1,4 @@
-import { prisma } from "@naart/database";
-import { randomUUID } from "crypto";
+import { prisma } from "@vaart/database";
 import type { PlaylistItem } from "@/lib/display-playlist";
 
 type ColumnCheck = { exists: boolean };

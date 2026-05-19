@@ -1,8 +1,9 @@
-import { prisma } from "@naart/database";
+import { prisma } from "@vaart/database";
 import { AdminMediaStudio } from "@/components/admin-media-studio";
+import { getAppSettings } from "@/lib/app-settings";
 
 export default async function AdminMediaPage() {
-  const [media, campaigns] = await Promise.all([
+  const [media, campaigns, settings] = await Promise.all([
     prisma.media.findMany({
       orderBy: { createdAt: "desc" },
       select: {
@@ -21,7 +22,14 @@ export default async function AdminMediaPage() {
         status: true,
       },
     }),
+    getAppSettings(),
   ]);
 
-  return <AdminMediaStudio media={media.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() }))} campaigns={campaigns} />;
+  return (
+    <AdminMediaStudio
+      media={media.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() }))}
+      campaigns={campaigns}
+      defaultImageDuration={settings.defaultImageDuration}
+    />
+  );
 }

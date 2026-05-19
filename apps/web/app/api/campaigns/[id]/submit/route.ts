@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { prisma } from "@naart/database";
+import { prisma } from "@vaart/database";
 import { NextResponse } from "next/server";
 
 type CampaignSubmitContext = {

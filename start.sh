@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "--- Preparing and Starting Naart-E CMS ---"
+echo "--- Preparing and Starting Vaart-E CMS ---"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -18,5 +18,6 @@ if ! nc -z localhost 5432; then
 fi
 
 echo "--- Launching Development Environment ---"
+echo "Web app will bind to 0.0.0.0:3000 for LAN screen access."
 cd "$ROOT_DIR"
 npx pnpm --filter web dev

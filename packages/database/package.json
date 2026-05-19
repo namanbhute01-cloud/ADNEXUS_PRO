@@ -1,5 +1,5 @@
 {
-  "name": "@naart/database",
+  "name": "@vaart/database",
   "version": "1.0.0",
   "description": "",
   "main": "src/index.ts",
@@ -25,7 +25,7 @@
     "tsx": "^4.21.0",
     "typescript": "^6.0.3"
   },
-"prisma": {
-  "seed": "npx tsx prisma/seed.ts"
-}
+  "prisma": {
+    "seed": "npx tsx prisma/seed.ts"
+  }
 }

@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { prisma } from "@naart/database";
+import { prisma } from "@vaart/database";
 import { NextRequest, NextResponse } from "next/server";
 import { updateCampaignMediaSettings, upsertCampaignMediaSettings } from "@/lib/campaign-playlist";
 

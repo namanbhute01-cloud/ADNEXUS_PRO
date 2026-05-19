@@ -28,7 +28,7 @@ export default async function DashboardLayout({
 
   return (
     <PortalShell
-      appName="NAART-E"
+      appName="VAART-E"
       title="Campaigner Console"
       subtitle="Read-only portal for assigned campaigns, display status, and currently displayed content."
       userName={session.user.name ?? "Campaigner"}

@@ -1,5 +1,5 @@
 {
-  "name": "naart-e",
+  "name": "vaart-e",
   "private": true,
   "scripts": {
     "build": "turbo build",

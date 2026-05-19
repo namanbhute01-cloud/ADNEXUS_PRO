@@ -76,7 +76,7 @@ export default function LoginPage() {
         <section className="relative overflow-hidden bg-slate-950 px-6 py-8 text-white md:px-10 md:py-12">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.28),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(34,211,238,0.24),transparent_24%)]" />
           <div className="relative">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">NAART-E CMS</p>
+            <p className="text-xs uppercase tracking-[0.35em] text-slate-400">VAART-E CMS</p>
             <h1 className="mt-4 max-w-lg text-4xl font-semibold leading-tight md:text-5xl">
               Open signage CMS for TVs, projectors, tablets, and kiosks.
             </h1>
@@ -116,7 +116,7 @@ export default function LoginPage() {
                           <FormLabel>Email address</FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="admin@naart.com"
+                              placeholder="admin@vaart.com"
                               className="h-12 rounded-2xl border-slate-200 bg-slate-50 px-4"
                               {...field}
                             />

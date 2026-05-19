@@ -1,11 +1,16 @@
-import { prisma } from "@naart/database";
+import { prisma } from "@vaart/database";
+import { headers } from "next/headers";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminDisplayUnitCreate } from "@/components/admin-display-unit-create";
-import { getAppSettings, playerUrl } from "@/lib/app-settings";
+import { getAppSettings, playerUrl, resolvePlayerBaseUrl } from "@/lib/app-settings";
 import { DeleteEVButton } from "@/components/delete-ev-button";
 
 export default async function EVsPage() {
+  const headerStore = await headers();
+  const forwardedProto = headerStore.get("x-forwarded-proto");
+  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
+  const requestOrigin = host ? `${forwardedProto ?? "http"}://${host}` : null;
   const [evs, settings] = await Promise.all([
     prisma.eV.findMany({
       include: {
@@ -19,6 +24,10 @@ export default async function EVsPage() {
     }),
     getAppSettings(),
   ]);
+  const runtimePlayerSettings = {
+    ...settings,
+    playerBaseUrl: resolvePlayerBaseUrl(settings, requestOrigin),
+  };
 
   return (
     <div className="space-y-6">
@@ -60,7 +69,7 @@ export default async function EVsPage() {
                       {tv.assignments.length ? "Assigned" : "Idle"}
                     </p>
                     <p className="mt-3 break-all rounded-xl bg-white px-3 py-2 text-[11px] text-slate-500">
-                      {playerUrl(settings, ev.serialNumber, tv.subSerial)}
+                      {playerUrl(runtimePlayerSettings, ev.serialNumber, tv.subSerial)}
                     </p>
                   </div>
                 ))}

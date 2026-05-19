@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "--- Starting Naart-E Database Setup ---"
+echo "--- Starting Vaart-E Database Setup ---"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DB_DIR="$ROOT_DIR/packages/database"
@@ -23,7 +23,7 @@ fi
 if [[ "$DATABASE_URL_LINE" != *"://"*":"*"@"* ]]; then
   echo "ERROR: DATABASE_URL does not appear to include database password."
   echo "Expected format:"
-  echo 'postgresql://postgres:YOUR_PASSWORD@localhost:5432/naarte?schema=public'
+  echo 'postgresql://postgres:YOUR_PASSWORD@localhost:5432/vaarte?schema=public'
   exit 1
 fi
 
@@ -42,5 +42,5 @@ echo "Seeding initial admin and sample data..."
 "$DB_PRISMA_BIN" db seed
 
 echo "--- Setup Complete ---"
-echo "Admin login: admin@naart.com / Admin@123"
+echo "Admin login: admin@vaart.com / Admin@123"
 echo "Campaigner login: client@example.com / Client@123"
