@@ -62,6 +62,8 @@
     let currentIndex = 0
     let ambientEl = null
     let primaryEl = null
+    let audioUnlocked = false
+    const UNLOCK_EVENTS = ['click', 'pointerdown', 'touchstart', 'keydown']
 
     const container = document.getElementById('media-container')
     const statusEl = document.getElementById('status')
@@ -138,6 +140,21 @@
       ambientEl.volume = ducked ? base * 0.2 : base
     }
 
+    function configureMedia(el, volume, { isVideo = false, loop = false } = {}) {
+      el.autoplay = true
+      el.loop = loop
+      el.preload = 'auto'
+      el.crossOrigin = 'anonymous'
+      el.volume = Math.max(0, Math.min(1, volume))
+      el.muted = false
+      if (isVideo) {
+        el.playsInline = true
+        el.setAttribute('playsinline', '')
+        el.setAttribute('webkit-playsinline', 'true')
+      }
+      return el
+    }
+
     function renderAmbient() {
       if (ambientEl) {
         ambientEl.remove()
@@ -150,9 +167,7 @@
       if (ambientItem.type === 'VIDEO') {
         const video = document.createElement('video')
         video.src = ambientItem.url
-        video.autoplay = true
-        video.loop = true
-        video.playsInline = true
+        configureMedia(video, (ambientItem.volumePercent ?? 100) / 100, { isVideo: true, loop: true })
         video.style.position = 'fixed'
         video.style.inset = '0'
         video.style.width = '100%'
@@ -160,34 +175,42 @@
         video.style.objectFit = 'cover'
         video.style.opacity = '0.35'
         video.style.zIndex = '0'
-        video.volume = Math.max(0, Math.min(1, (ambientItem.volumePercent ?? 100) / 100))
         document.body.appendChild(video)
         ambientEl = video
-        tryPlay(video)
+        tryPlay(video, { kind: 'ambient', allowMutedFallback: true })
         return
       }
 
       if (ambientItem.type === 'AUDIO') {
         const audio = document.createElement('audio')
         audio.src = ambientItem.url
-        audio.autoplay = true
-        audio.loop = true
-        audio.preload = 'auto'
-        audio.volume = Math.max(0, Math.min(1, (ambientItem.volumePercent ?? 100) / 100))
+        configureMedia(audio, (ambientItem.volumePercent ?? 100) / 100, { loop: true })
         document.body.appendChild(audio)
         ambientEl = audio
-        tryPlay(audio)
+        tryPlay(audio, { kind: 'ambient', allowMutedFallback: true })
       }
     }
 
-    async function tryPlay(el) {
+    async function tryPlay(el, { kind = 'primary', allowMutedFallback = true } = {}) {
+      if (!el) return false
       try {
         await el.play()
         audioGate.style.display = 'none'
         statusEl.textContent = `Online · ${SUB_SERIAL}`
+        return true
       } catch (e) {
+        if (!audioUnlocked && allowMutedFallback) {
+          try {
+            el.muted = true
+            await el.play()
+            audioGate.style.display = 'flex'
+            statusEl.textContent = 'Audio blocked - press any key or tap once'
+            return false
+          } catch (_) {}
+        }
         audioGate.style.display = 'flex'
-        statusEl.textContent = 'Audio blocked - tap screen once'
+        statusEl.textContent = `${kind === 'ambient' ? 'Ambient' : 'Primary'} audio blocked - press any key or tap once`
+        return false
       }
     }
 
@@ -199,27 +222,22 @@
       if (item.type === 'VIDEO') {
         const v = document.createElement('video')
         v.src = item.url
-        v.autoplay = true
-        v.playsInline = true
-        v.volume = Math.max(0, Math.min(1, (item.volumePercent ?? 100) / 100))
+        configureMedia(v, (item.volumePercent ?? 100) / 100, { isVideo: true, loop: !!item.loopPlayback })
         v.onended = () => { setAmbientVolume(false); playNext() }
         v.onerror = () => { setAmbientVolume(false); playNext() }
         container.appendChild(v)
         primaryEl = v
-        tryPlay(v)
+        tryPlay(v, { kind: 'primary', allowMutedFallback: true })
       } else if (item.type === 'AUDIO') {
         const a = document.createElement('audio')
         a.src = item.url
-        a.autoplay = true
-        a.preload = 'auto'
-        a.loop = !!item.loopPlayback
-        a.volume = Math.max(0, Math.min(1, (item.volumePercent ?? 100) / 100))
+        configureMedia(a, (item.volumePercent ?? 100) / 100, { loop: !!item.loopPlayback })
         a.onended = () => { setAmbientVolume(false); playNext() }
         a.onerror = () => { setAmbientVolume(false); playNext() }
         container.innerHTML = `<div id="logo-screen"><img src="/logo.png" alt="Vaart-E" /></div>`
         container.appendChild(a)
         primaryEl = a
-        tryPlay(a)
+        tryPlay(a, { kind: 'primary', allowMutedFallback: true })
       } else {
         const img = document.createElement('img')
         img.src = item.url
@@ -247,11 +265,20 @@
     sendHeartbeat()
     setInterval(sendHeartbeat, 60 * 1000)
     setTimeout(() => location.reload(), 6 * 60 * 60 * 1000)
-    function unlockAudio() {
-      if (ambientEl) tryPlay(ambientEl)
-      if (primaryEl) tryPlay(primaryEl)
+    async function unlockAudio() {
+      audioUnlocked = true
+      const mediaNodes = [ambientEl, primaryEl].filter(Boolean)
+      for (const node of mediaNodes) {
+        node.muted = false
+      }
+      await Promise.allSettled([
+        tryPlay(ambientEl, { kind: 'ambient', allowMutedFallback: false }),
+        tryPlay(primaryEl, { kind: 'primary', allowMutedFallback: false })
+      ])
     }
-    document.addEventListener('click', unlockAudio, { passive: true })
+    UNLOCK_EVENTS.forEach((eventName) => {
+      document.addEventListener(eventName, unlockAudio, { passive: true })
+    })
     audioGateBtn.addEventListener('click', unlockAudio)
   </script>
 </body>

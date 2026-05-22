@@ -19,6 +19,7 @@ type PlaylistItem = {
 };
 
 const DUCKED_AMBIENT_VOLUME = 0.2;
+const AUTOPLAY_UNLOCK_EVENTS = ["click", "pointerdown", "touchstart", "keydown"] as const;
 
 export function DevicePlayer() {
   const params = useSearchParams();
@@ -31,6 +32,8 @@ export function DevicePlayer() {
   const ambientMediaRef = useRef<HTMLMediaElement | null>(null);
   const primaryMediaRef = useRef<HTMLMediaElement | null>(null);
   const [audioUnlockNeeded, setAudioUnlockNeeded] = useState(false);
+  const [audioPrimedMuted, setAudioPrimedMuted] = useState(false);
+  const audioUnlockedRef = useRef(false);
 
   const channelName = useMemo(
     () => (serial && subSerial ? `tv-${serial}-${subSerial}` : null),
@@ -156,15 +159,34 @@ export function DevicePlayer() {
   async function tryStartMedia(
     element: HTMLMediaElement | null,
     kind: "ambient" | "primary",
+    options: { allowMutedFallback?: boolean } = {},
   ) {
     if (!element) return;
+    const { allowMutedFallback = true } = options;
+
     try {
       await element.play();
       setAudioUnlockNeeded(false);
+      if (!element.muted) {
+        setAudioPrimedMuted(false);
+      }
     } catch {
-      if (kind === "ambient" || element.volume > 0) {
+      if (!audioUnlockedRef.current && allowMutedFallback) {
+        try {
+          element.muted = true;
+          await element.play();
+          setAudioPrimedMuted(true);
+          setAudioUnlockNeeded(true);
+          setStatus("Audio blocked by browser policy - tap or press any key once");
+          return;
+        } catch {
+          // Fall through to blocked UI state.
+        }
+      }
+
+      if (kind === "ambient" || element.volume > 0 || element.muted) {
         setAudioUnlockNeeded(true);
-        setStatus("Audio blocked by browser policy");
+        setStatus("Audio blocked by browser policy - tap or press any key once");
       }
     }
   }
@@ -190,6 +212,35 @@ export function DevicePlayer() {
   useEffect(() => {
     void tryStartMedia(primaryMediaRef.current, "primary");
   }, [currentPrimary?.id]);
+
+  useEffect(() => {
+    if (!hasAudioMedia) return;
+
+    const unlockAudio = async () => {
+      audioUnlockedRef.current = true;
+
+      [ambientMediaRef.current, primaryMediaRef.current].forEach((element) => {
+        if (element) {
+          element.muted = false;
+        }
+      });
+
+      await Promise.allSettled([
+        tryStartMedia(ambientMediaRef.current, "ambient", { allowMutedFallback: false }),
+        tryStartMedia(primaryMediaRef.current, "primary", { allowMutedFallback: false }),
+      ]);
+    };
+
+    AUTOPLAY_UNLOCK_EVENTS.forEach((eventName) => {
+      window.addEventListener(eventName, unlockAudio, { passive: true });
+    });
+
+    return () => {
+      AUTOPLAY_UNLOCK_EVENTS.forEach((eventName) => {
+        window.removeEventListener(eventName, unlockAudio);
+      });
+    };
+  }, [hasAudioMedia, currentAmbient?.id, currentPrimary?.id]);
 
   if (!serial || !subSerial) {
     return (
@@ -218,12 +269,14 @@ export function DevicePlayer() {
             if (element) {
               element.volume = currentAmbient.volumePercent / 100;
               element.muted = false;
+              element.defaultMuted = false;
             }
           }}
           className="absolute inset-0 h-full w-full object-cover opacity-35"
           src={currentAmbient.url}
           autoPlay
           loop
+          preload="auto"
           muted={false}
           playsInline
         />
@@ -234,13 +287,15 @@ export function DevicePlayer() {
           key={currentAmbient.id}
           ref={(element) => {
             ambientMediaRef.current = element;
-            if (element) {
-              element.volume = currentAmbient.volumePercent / 100;
-            }
-          }}
-          src={currentAmbient.url}
-          autoPlay
-          loop
+              if (element) {
+                element.volume = currentAmbient.volumePercent / 100;
+                element.muted = false;
+                element.defaultMuted = false;
+              }
+            }}
+            src={currentAmbient.url}
+            autoPlay
+            loop
           preload="auto"
         />
       ) : null}
@@ -266,10 +321,12 @@ export function DevicePlayer() {
               if (element) {
                 element.volume = currentPrimary.volumePercent / 100;
                 element.muted = false;
+                element.defaultMuted = false;
               }
             }}
             onEnded={advancePrimary}
             onError={advancePrimary}
+            preload="auto"
           />
         ) : currentPrimary.type === "AUDIO" ? (
           <audio
@@ -281,6 +338,8 @@ export function DevicePlayer() {
               primaryMediaRef.current = element;
               if (element) {
                 element.volume = currentPrimary.volumePercent / 100;
+                element.muted = false;
+                element.defaultMuted = false;
               }
             }}
             preload="auto"
@@ -298,9 +357,15 @@ export function DevicePlayer() {
             type="button"
             className="rounded-[2rem] border border-white/20 bg-white/10 px-8 py-5 text-center text-white shadow-2xl"
             onClick={async () => {
+              audioUnlockedRef.current = true;
+              [ambientMediaRef.current, primaryMediaRef.current].forEach((element) => {
+                if (element) {
+                  element.muted = false;
+                }
+              });
               await Promise.allSettled([
-                tryStartMedia(ambientMediaRef.current, "ambient"),
-                tryStartMedia(primaryMediaRef.current, "primary"),
+                tryStartMedia(ambientMediaRef.current, "ambient", { allowMutedFallback: false }),
+                tryStartMedia(primaryMediaRef.current, "primary", { allowMutedFallback: false }),
               ]);
             }}
           >
@@ -309,7 +374,7 @@ export function DevicePlayer() {
             </span>
             <span className="mt-3 block text-2xl font-semibold">Start playback with audio</span>
             <span className="mt-2 block text-sm text-slate-300">
-              Browser blocked autoplay. Tap once to enable video sound.
+              Browser blocked autoplay. Tap, click, touch, or press any key once to enable sound.
             </span>
           </button>
         </div>
@@ -320,13 +385,19 @@ export function DevicePlayer() {
           type="button"
           className="absolute left-4 top-4 z-20 rounded-full border border-white/20 bg-black/55 px-4 py-2 text-xs tracking-[0.2em] text-white backdrop-blur"
           onClick={async () => {
+            audioUnlockedRef.current = true;
+            [ambientMediaRef.current, primaryMediaRef.current].forEach((element) => {
+              if (element) {
+                element.muted = false;
+              }
+            });
             await Promise.allSettled([
-              tryStartMedia(ambientMediaRef.current, "ambient"),
-              tryStartMedia(primaryMediaRef.current, "primary"),
+              tryStartMedia(ambientMediaRef.current, "ambient", { allowMutedFallback: false }),
+              tryStartMedia(primaryMediaRef.current, "primary", { allowMutedFallback: false }),
             ]);
           }}
         >
-          Restart audio
+          {audioPrimedMuted ? "Enable sound" : "Restart audio"}
         </button>
       ) : null}
 
