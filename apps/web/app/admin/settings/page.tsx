@@ -22,7 +22,7 @@ export default async function SettingsPage() {
         </p>
       </div>
 
-      <AdminSettingsForm settings={settings} />
+      <AdminSettingsForm key={JSON.stringify(settings)} settings={settings} />
 
       <Card className="border-slate-200/80 shadow-sm">
         <CardHeader>

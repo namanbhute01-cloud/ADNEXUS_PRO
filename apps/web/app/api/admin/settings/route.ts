@@ -17,7 +17,9 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const settings = normalizeAppSettings(await req.json());
+  const current = await getAppSettings();
+  const incoming = await req.json();
+  const settings = normalizeAppSettings({ ...current, ...incoming });
   await updateAppSettings(settings);
   return NextResponse.json(settings);
 }

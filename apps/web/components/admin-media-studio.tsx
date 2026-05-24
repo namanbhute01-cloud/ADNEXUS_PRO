@@ -7,6 +7,7 @@ import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { ALLOWED_UPLOAD_TYPES, MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from "@/lib/media-upload";
 
 type MediaItem = {
   id: string;
@@ -68,6 +69,16 @@ export function AdminMediaStudio({ media, campaigns, defaultImageDuration }: Adm
     const file = acceptedFiles[0];
     if (!file) return;
 
+    if (!ALLOWED_UPLOAD_TYPES.includes(file.type as (typeof ALLOWED_UPLOAD_TYPES)[number])) {
+      toast.error("Unsupported file type");
+      return;
+    }
+
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.error(`File too large. Max ${MAX_UPLOAD_LABEL}`);
+      return;
+    }
+
     const uploadMetaResponse = await fetch("/api/media/upload-url", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -87,6 +98,7 @@ export function AdminMediaStudio({ media, campaigns, defaultImageDuration }: Adm
     const { uploadUrl, key } = await uploadMetaResponse.json();
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", uploadUrl);
+    xhr.timeout = 30 * 60 * 1000;
     xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
@@ -134,6 +146,16 @@ export function AdminMediaStudio({ media, campaigns, defaultImageDuration }: Adm
       toast.error("Upload failed");
     };
 
+    xhr.onabort = () => {
+      setProgress(0);
+      toast.error("Upload aborted");
+    };
+
+    xhr.ontimeout = () => {
+      setProgress(0);
+      toast.error("Upload timed out");
+    };
+
     setProgress(1);
     xhr.send(file);
   }
@@ -168,7 +190,22 @@ export function AdminMediaStudio({ media, campaigns, defaultImageDuration }: Adm
     startTransition(() => router.refresh());
   }
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    multiple: false,
+    maxSize: MAX_UPLOAD_BYTES,
+    accept: {
+      "video/mp4": [".mp4"],
+      "video/webm": [".webm"],
+      "image/jpeg": [".jpg", ".jpeg"],
+      "image/png": [".png"],
+      "image/webp": [".webp"],
+      "audio/mpeg": [".mp3"],
+      "audio/mp3": [".mp3"],
+      "audio/wav": [".wav"],
+      "audio/ogg": [".ogg"],
+    },
+  });
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
@@ -199,7 +236,7 @@ export function AdminMediaStudio({ media, campaigns, defaultImageDuration }: Adm
           <UploadCloud className="mx-auto h-12 w-12 text-slate-400" />
           <p className="mt-4 text-lg font-semibold text-slate-900">Drop assets for admin-controlled library</p>
           <p className="mt-2 text-sm text-slate-500">
-            Supports image, video, audio. Campaigners no upload. View-only only.
+            Supports image, video, audio up to {MAX_UPLOAD_LABEL}. Campaigners no upload. View-only only.
           </p>
         </section>
 

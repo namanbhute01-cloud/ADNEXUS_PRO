@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Pusher from "pusher-js";
+import { PlaybackEngine } from "@/components/playback-engine";
 
 type PlaylistItem = {
   id: string;
@@ -28,9 +29,10 @@ export function DevicePlayer() {
   const apiBase = params.get("api") || "";
   const [playlist, setPlaylist] = useState<PlaylistItem[]>([]);
   const [status, setStatus] = useState("Waiting for device credentials");
-  const [primaryIndex, setPrimaryIndex] = useState(0);
+  const [currentPrimary, setCurrentPrimary] = useState<PlaylistItem | null>(null);
   const ambientMediaRef = useRef<HTMLMediaElement | null>(null);
   const primaryMediaRef = useRef<HTMLMediaElement | null>(null);
+  const engineRef = useRef<PlaybackEngine<PlaylistItem> | null>(null);
   const [audioUnlockNeeded, setAudioUnlockNeeded] = useState(false);
   const [audioPrimedMuted, setAudioPrimedMuted] = useState(false);
   const audioUnlockedRef = useRef(false);
@@ -52,8 +54,6 @@ export function DevicePlayer() {
     () => playlist.filter((item) => item.playbackLayer === "PRIMARY").sort((a, b) => a.order - b.order),
     [playlist],
   );
-
-  const currentPrimary = primaryItems.length ? primaryItems[primaryIndex % primaryItems.length] : null;
   const hasAudioMedia = useMemo(
     () => playlist.some((item) => item.type === "AUDIO" || item.type === "VIDEO"),
     [playlist],
@@ -83,7 +83,6 @@ export function DevicePlayer() {
         const data = await response.json();
         if (!cancelled) {
           setPlaylist(data.playlist ?? []);
-          setPrimaryIndex(0);
           setStatus(`Connected · ${subSerialValue}`);
         }
       } catch {
@@ -125,13 +124,11 @@ export function DevicePlayer() {
 
     channel.bind("content-update", (data: { playlist: PlaylistItem[] }) => {
       setPlaylist(data.playlist ?? []);
-      setPrimaryIndex(0);
       setStatus(`Live update · ${subSerial}`);
     });
 
     channel.bind("clear-content", () => {
       setPlaylist([]);
-      setPrimaryIndex(0);
       setStatus("Playlist cleared");
     });
 
@@ -145,8 +142,26 @@ export function DevicePlayer() {
     };
   }, [channelName, subSerial]);
 
+  useEffect(() => {
+    const engine = new PlaybackEngine<PlaylistItem>({
+      playlist: [],
+      onItemChange: (item) => setCurrentPrimary(item),
+    });
+    engineRef.current = engine;
+
+    return () => {
+      if (!engineRef.current) return;
+      engine.destroy();
+      engineRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    engineRef.current?.updatePlaylist(primaryItems);
+  }, [primaryItems]);
+
   function advancePrimary() {
-    setPrimaryIndex((index) => (primaryItems.length ? (index + 1) % primaryItems.length : 0));
+    engineRef.current?.next();
   }
 
   function applyAmbientVolume(item: PlaylistItem | null, ducked: boolean) {
@@ -415,11 +430,6 @@ function ImageFrame({
   item: PlaylistItem;
   onDone: () => void;
 }) {
-  useEffect(() => {
-    const timer = window.setTimeout(onDone, (item.duration || 10) * 1000);
-    return () => window.clearTimeout(timer);
-  }, [item.duration, onDone]);
-
   return (
     <Image
       key={item.id}

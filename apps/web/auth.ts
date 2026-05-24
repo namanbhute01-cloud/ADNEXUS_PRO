@@ -29,6 +29,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) { 
         token.role = user.role; 
         token.id = user.id;
+        token.devMode = user.role === "ADMIN";
       }
       return token
     },
@@ -36,6 +37,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token && session.user) {
         session.user.role = token.role as typeof session.user.role
         session.user.id = token.id as string
+        session.user.devMode = token.devMode === true
       }
       return session
     }

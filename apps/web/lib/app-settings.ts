@@ -19,16 +19,6 @@ const defaults: AppSettings = {
 
 const settingKeys = Object.keys(defaults) as (keyof AppSettings)[];
 
-async function ensureSettingsTable() {
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS "AppSetting" (
-      "key" TEXT PRIMARY KEY,
-      "value" TEXT NOT NULL,
-      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-}
-
 function serializeSetting<K extends keyof AppSettings>(key: K, value: AppSettings[K]) {
   if (typeof defaults[key] === "boolean") return value ? "true" : "false";
   return String(value);
@@ -45,13 +35,18 @@ function parseSetting<K extends keyof AppSettings>(key: K, value: string | null 
   return value as AppSettings[K];
 }
 
-export async function getAppSettings(): Promise<AppSettings> {
-  await ensureSettingsTable();
-  const rows = await prisma.$queryRawUnsafe<{ key: keyof AppSettings; value: string }[]>(
-    `SELECT "key", "value" FROM "AppSetting"`,
-  );
+async function readStoredSettings() {
+  const rows = await prisma.appSetting.findMany({
+    where: {
+      key: { in: settingKeys },
+    },
+  });
 
-  const values = new Map(rows.filter((row) => settingKeys.includes(row.key)).map((row) => [row.key, row.value]));
+  return new Map(rows.map((row) => [row.key as keyof AppSettings, row.value]));
+}
+
+export async function getAppSettings(): Promise<AppSettings> {
+  const values = await readStoredSettings();
   return {
     heartbeatOfflineSeconds: parseSetting("heartbeatOfflineSeconds", values.get("heartbeatOfflineSeconds")),
     playerBaseUrl: parseSetting("playerBaseUrl", values.get("playerBaseUrl")),
@@ -69,25 +64,27 @@ export function normalizeAppSettings(input: Partial<AppSettings>): AppSettings {
     heartbeatOfflineSeconds,
     playerBaseUrl: playerBaseUrl || defaults.playerBaseUrl,
     defaultImageDuration,
-    allowLocalUploads: Boolean(input.allowLocalUploads),
+    allowLocalUploads:
+      typeof input.allowLocalUploads === "boolean"
+        ? input.allowLocalUploads
+        : defaults.allowLocalUploads,
   };
 }
 
 export async function updateAppSettings(settings: AppSettings) {
-  await ensureSettingsTable();
   await prisma.$transaction(
     settingKeys.map((key) =>
-      prisma.$executeRawUnsafe(
-        `
-          INSERT INTO "AppSetting" ("key", "value", "updatedAt")
-          VALUES ($1, $2, CURRENT_TIMESTAMP)
-          ON CONFLICT ("key")
-          DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = CURRENT_TIMESTAMP
-        `,
-        key,
-        serializeSetting(key, settings[key]),
-      ),
-    ),
+      prisma.appSetting.upsert({
+        where: { key },
+        update: {
+          value: serializeSetting(key, settings[key]),
+        },
+        create: {
+          key,
+          value: serializeSetting(key, settings[key]),
+        },
+      }),
+    )
   );
 }
 

@@ -1,14 +1,14 @@
 import { auth } from "@/auth";
 import { mkdir } from "fs/promises";
 import { createWriteStream } from "fs";
+import { rm } from "fs/promises";
 import { Readable } from "stream";
 import { finished } from "stream/promises";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from "@/lib/media-upload";
 
 export const runtime = "nodejs";
-
-const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
 
 export async function PUT(req: NextRequest) {
   const session = await auth();
@@ -23,8 +23,8 @@ export async function PUT(req: NextRequest) {
   }
 
   const contentLength = Number(req.headers.get("content-length") ?? 0);
-  if (!contentLength || contentLength > MAX_UPLOAD_BYTES) {
-    return NextResponse.json({ error: "File too large (max 500MB)" }, { status: 400 });
+  if (!Number.isFinite(contentLength) || contentLength <= 0 || contentLength > MAX_UPLOAD_BYTES) {
+    return NextResponse.json({ error: `File too large (max ${MAX_UPLOAD_LABEL})` }, { status: 400 });
   }
 
   if (!req.body) {
@@ -40,7 +40,13 @@ export async function PUT(req: NextRequest) {
 
   const uploadStream = Readable.fromWeb(req.body as import("stream/web").ReadableStream<Uint8Array>);
   await mkdir(path.dirname(targetPath), { recursive: true });
-  await finished(uploadStream.pipe(createWriteStream(targetPath, { flags: "wx" })));
+
+  try {
+    await finished(uploadStream.pipe(createWriteStream(targetPath, { flags: "wx" })));
+  } catch (error) {
+    await rm(targetPath, { force: true }).catch(() => undefined);
+    throw error;
+  }
 
   return NextResponse.json({ ok: true, key });
 }

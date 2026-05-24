@@ -4,6 +4,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { NextResponse } from "next/server"
 import { v4 as uuid } from "uuid"
 import { getAppSettings } from "@/lib/app-settings"
+import { ALLOWED_UPLOAD_TYPES, isAllowedUploadType, MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from "@/lib/media-upload"
 
 function isConfigured(value: string | undefined) {
   return Boolean(value && value.trim() && value !== "dummy")
@@ -28,12 +29,15 @@ export async function POST(req: Request) {
 
   const { filename, contentType, sizeBytes } = await req.json()
 
-  const allowedTypes = ["video/mp4", "video/webm", "image/jpeg", "image/png", "image/webp", "audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg"]
-  if (!allowedTypes.includes(contentType)) {
-    return NextResponse.json({ error: "File type not allowed" }, { status: 400 })
+  if (typeof filename !== "string" || typeof contentType !== "string" || !Number.isFinite(sizeBytes)) {
+    return NextResponse.json({ error: "Invalid upload metadata" }, { status: 400 })
   }
-  if (sizeBytes > 500 * 1024 * 1024) {
-    return NextResponse.json({ error: "File too large (max 500MB)" }, { status: 400 })
+
+  if (!isAllowedUploadType(contentType)) {
+    return NextResponse.json({ error: `File type not allowed. Allowed: ${ALLOWED_UPLOAD_TYPES.join(", ")}` }, { status: 400 })
+  }
+  if (sizeBytes <= 0 || sizeBytes > MAX_UPLOAD_BYTES) {
+    return NextResponse.json({ error: `File too large (max ${MAX_UPLOAD_LABEL})` }, { status: 400 })
   }
 
   const settings = await getAppSettings()
