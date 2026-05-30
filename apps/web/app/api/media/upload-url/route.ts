@@ -4,7 +4,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { NextResponse } from "next/server"
 import { v4 as uuid } from "uuid"
 import { getAppSettings } from "@/lib/app-settings"
-import { ALLOWED_UPLOAD_TYPES, isAllowedUploadType, MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from "@/lib/media-upload"
+import { ALLOWED_UPLOAD_TYPES, formatUploadLimit, isAllowedUploadType } from "@/lib/media-upload"
 
 function isConfigured(value: string | undefined) {
   return Boolean(value && value.trim() && value !== "dummy")
@@ -33,14 +33,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid upload metadata" }, { status: 400 })
   }
 
+  const settings = await getAppSettings()
+  const maxUploadBytes = settings.uploadMaxBytes
+
   if (!isAllowedUploadType(contentType)) {
     return NextResponse.json({ error: `File type not allowed. Allowed: ${ALLOWED_UPLOAD_TYPES.join(", ")}` }, { status: 400 })
   }
-  if (sizeBytes <= 0 || sizeBytes > MAX_UPLOAD_BYTES) {
-    return NextResponse.json({ error: `File too large (max ${MAX_UPLOAD_LABEL})` }, { status: 400 })
+  if (sizeBytes <= 0 || sizeBytes > maxUploadBytes) {
+    return NextResponse.json({ error: `File too large (max ${formatUploadLimit(maxUploadBytes)})` }, { status: 400 })
   }
-
-  const settings = await getAppSettings()
 
   if (!hasR2Config() && settings.allowLocalUploads) {
     const key = `uploads/${session.user.id}/${uuid()}-${safeFilename(filename)}`

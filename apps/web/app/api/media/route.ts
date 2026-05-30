@@ -3,6 +3,14 @@ import { prisma } from "@vaart/database";
 import { NextResponse } from "next/server";
 import { unlink } from "fs/promises";
 import path from "path";
+import { broadcastCampaignUpdate } from "@/lib/realtime";
+
+function serializeMedia<T extends { sizeBytes: bigint }>(media: T) {
+  return {
+    ...media,
+    sizeBytes: media.sizeBytes.toString(),
+  };
+}
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -19,7 +27,7 @@ export async function POST(req: Request) {
       filename,
       originalName,
       type,
-      sizeBytes,
+      sizeBytes: BigInt(Math.trunc(sizeBytes)),
       status: "READY",
       url: isLocalUpload
         ? `/${key}`
@@ -29,7 +37,7 @@ export async function POST(req: Request) {
     }
   });
 
-  return NextResponse.json(media);
+  return NextResponse.json(serializeMedia(media));
 }
 
 export async function DELETE(req: Request) {
@@ -41,6 +49,11 @@ export async function DELETE(req: Request) {
 
   const media = await prisma.media.findUnique({ where: { id } });
   if (!media) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const impactedCampaigns = await prisma.campaignMedia.findMany({
+    where: { mediaId: id },
+    select: { campaignId: true },
+  });
 
   // Delete related campaignMedia first
   await prisma.campaignMedia.deleteMany({ where: { mediaId: id } });
@@ -57,6 +70,12 @@ export async function DELETE(req: Request) {
       console.error("Failed to delete local file:", e);
     }
   }
+
+  await Promise.all(
+    [...new Set(impactedCampaigns.map((item) => item.campaignId))].map((campaignId) =>
+      broadcastCampaignUpdate(campaignId),
+    ),
+  );
 
   return NextResponse.json({ ok: true });
 }
@@ -91,5 +110,5 @@ export async function GET() {
           },
     orderBy: { createdAt: "desc" }
   });
-  return NextResponse.json(media);
+  return NextResponse.json(media.map(serializeMedia));
 }

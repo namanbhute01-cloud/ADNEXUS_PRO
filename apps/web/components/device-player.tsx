@@ -19,6 +19,11 @@ type PlaylistItem = {
   originalName: string;
 };
 
+type PlayerBootstrap = {
+  playlist: PlaylistItem[];
+  refreshSeconds: number;
+};
+
 const DUCKED_AMBIENT_VOLUME = 0.2;
 const AUTOPLAY_UNLOCK_EVENTS = ["click", "pointerdown", "touchstart", "keydown"] as const;
 
@@ -28,6 +33,8 @@ export function DevicePlayer() {
   const subSerial = params.get("sub");
   const apiBase = params.get("api") || "";
   const [playlist, setPlaylist] = useState<PlaylistItem[]>([]);
+  const playlistSignatureRef = useRef("");
+  const [refreshSeconds, setRefreshSeconds] = useState(15);
   const [status, setStatus] = useState("Waiting for device credentials");
   const [currentPrimary, setCurrentPrimary] = useState<PlaylistItem | null>(null);
   const ambientMediaRef = useRef<HTMLMediaElement | null>(null);
@@ -59,6 +66,30 @@ export function DevicePlayer() {
     [playlist],
   );
 
+  function signatureFor(items: PlaylistItem[]) {
+    return items
+      .map((item) => [
+        item.id,
+        item.url,
+        item.order,
+        item.duration ?? "",
+        item.playbackLayer,
+        item.volumePercent,
+        item.duckAmbient ? "1" : "0",
+        item.loopPlayback ? "1" : "0",
+      ].join(":"))
+      .join("|");
+  }
+
+  function applyPlaylist(items: PlaylistItem[], nextStatus: string) {
+    const nextSignature = signatureFor(items);
+    if (playlistSignatureRef.current !== nextSignature) {
+      playlistSignatureRef.current = nextSignature;
+      setPlaylist(items);
+    }
+    setStatus(nextStatus);
+  }
+
   useEffect(() => {
     if (!serial || !subSerial) return;
     const serialValue = serial;
@@ -66,7 +97,7 @@ export function DevicePlayer() {
 
     let cancelled = false;
 
-    async function fetchContent() {
+    async function fetchContent(reason = "Connected") {
       try {
         const response = await fetch(`${baseUrl}/api/display/content`, {
           headers: {
@@ -82,15 +113,25 @@ export function DevicePlayer() {
 
         const data = await response.json();
         if (!cancelled) {
-          setPlaylist(data.playlist ?? []);
-          setStatus(`Connected · ${subSerialValue}`);
+          const payload = data as PlayerBootstrap;
+          applyPlaylist(payload.playlist ?? [], `${reason} · ${subSerialValue}`);
+          setRefreshSeconds(Math.max(5, Number(payload.refreshSeconds) || 15));
         }
       } catch {
         if (!cancelled) setStatus("Connection failed");
       }
     }
 
-    fetchContent();
+    void fetchContent();
+    const syncInterval = setInterval(() => {
+      void fetchContent("Sync online");
+    }, refreshSeconds * 1000);
+
+    const refreshNow = () => void fetchContent("Resynced");
+    window.addEventListener("focus", refreshNow);
+    window.addEventListener("online", refreshNow);
+    document.addEventListener("visibilitychange", refreshNow);
+
     const heartbeat = setInterval(() => {
       fetch(`${baseUrl}/api/display/heartbeat`, {
         method: "POST",
@@ -105,9 +146,13 @@ export function DevicePlayer() {
 
     return () => {
       cancelled = true;
+      clearInterval(syncInterval);
       clearInterval(heartbeat);
+      window.removeEventListener("focus", refreshNow);
+      window.removeEventListener("online", refreshNow);
+      document.removeEventListener("visibilitychange", refreshNow);
     };
-  }, [baseUrl, serial, subSerial]);
+  }, [baseUrl, refreshSeconds, serial, subSerial]);
 
   useEffect(() => {
     if (!channelName) return;
@@ -123,13 +168,11 @@ export function DevicePlayer() {
     const channel = pusher.subscribe(channelName);
 
     channel.bind("content-update", (data: { playlist: PlaylistItem[] }) => {
-      setPlaylist(data.playlist ?? []);
-      setStatus(`Live update · ${subSerial}`);
+      applyPlaylist(data.playlist ?? [], `Live update · ${subSerial}`);
     });
 
     channel.bind("clear-content", () => {
-      setPlaylist([]);
-      setStatus("Playlist cleared");
+      applyPlaylist([], "Playlist cleared");
     });
 
     pusher.connection.bind("connected", () => setStatus(`Realtime online · ${subSerial}`));
@@ -341,6 +384,8 @@ export function DevicePlayer() {
             }}
             onEnded={advancePrimary}
             onError={advancePrimary}
+            onStalled={() => void tryStartMedia(primaryMediaRef.current, "primary")}
+            onWaiting={() => void tryStartMedia(primaryMediaRef.current, "primary")}
             preload="auto"
           />
         ) : currentPrimary.type === "AUDIO" ? (
@@ -360,6 +405,8 @@ export function DevicePlayer() {
             preload="auto"
             onEnded={advancePrimary}
             onError={advancePrimary}
+            onStalled={() => void tryStartMedia(primaryMediaRef.current, "primary")}
+            onWaiting={() => void tryStartMedia(primaryMediaRef.current, "primary")}
           />
         ) : (
           <ImageFrame item={currentPrimary} onDone={advancePrimary} />

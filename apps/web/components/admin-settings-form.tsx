@@ -82,6 +82,34 @@ export function AdminSettingsForm({ settings }: { settings: AppSettings }) {
           <p className="text-xs text-slate-500">Fallback duration for image playback.</p>
         </div>
 
+        <div className="space-y-2">
+          <Label htmlFor="player-refresh-seconds">Player refresh poll seconds</Label>
+          <Input
+            id="player-refresh-seconds"
+            type="number"
+            min={5}
+            max={300}
+            value={form.playerRefreshSeconds}
+            onChange={(event) => patch("playerRefreshSeconds", Number(event.target.value))}
+            className="h-10"
+          />
+          <p className="text-xs text-slate-500">Fallback polling when realtime event missed or network reconnects.</p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="upload-max-bytes">Upload limit bytes</Label>
+          <Input
+            id="upload-max-bytes"
+            type="number"
+            min={104857600}
+            max={10737418240}
+            value={form.uploadMaxBytes}
+            onChange={(event) => patch("uploadMaxBytes", Number(event.target.value))}
+            className="h-10"
+          />
+          <p className="text-xs text-slate-500">Supports up to 10737418240 bytes (10GB) when storage + network allow.</p>
+        </div>
+
         <label className="flex min-h-24 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
           <input
             type="checkbox"

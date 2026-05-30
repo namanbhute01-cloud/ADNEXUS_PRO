@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminSettingsForm } from "@/components/admin-settings-form";
 import { getAppSettings } from "@/lib/app-settings";
+import { resolveLanBaseUrl } from "@/lib/network";
 
 const items = [
   "R2 bucket, upload limits, and allowed media types",
@@ -11,6 +12,7 @@ const items = [
 
 export default async function SettingsPage() {
   const settings = await getAppSettings();
+  const detectedLanUrl = resolveLanBaseUrl();
 
   return (
     <div className="space-y-6">
@@ -23,6 +25,16 @@ export default async function SettingsPage() {
       </div>
 
       <AdminSettingsForm key={JSON.stringify(settings)} settings={settings} />
+
+      <Card className="border-slate-200/80 shadow-sm">
+        <CardHeader>
+          <CardTitle>Detected network host</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-slate-600">
+          <p>Server can bind `0.0.0.0`, but screens need routable host URL.</p>
+          <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-slate-900">{detectedLanUrl}</p>
+        </CardContent>
+      </Card>
 
       <Card className="border-slate-200/80 shadow-sm">
         <CardHeader>

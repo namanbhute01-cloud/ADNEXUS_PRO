@@ -1,5 +1,4 @@
-export const MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024;
-export const MAX_UPLOAD_LABEL = "2GB";
+export const DEFAULT_MAX_UPLOAD_BYTES = 10 * 1024 * 1024 * 1024;
 
 export const ALLOWED_UPLOAD_TYPES = [
   "video/mp4",
@@ -15,4 +14,13 @@ export const ALLOWED_UPLOAD_TYPES = [
 
 export function isAllowedUploadType(contentType: string) {
   return ALLOWED_UPLOAD_TYPES.includes(contentType as (typeof ALLOWED_UPLOAD_TYPES)[number]);
+}
+
+export function formatUploadLimit(bytes: number) {
+  if (bytes >= 1024 * 1024 * 1024) {
+    const value = bytes / (1024 * 1024 * 1024);
+    return `${Number.isInteger(value) ? value : value.toFixed(1)}GB`;
+  }
+
+  return `${Math.round(bytes / (1024 * 1024))}MB`;
 }

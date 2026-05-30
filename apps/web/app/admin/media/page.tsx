@@ -30,6 +30,7 @@ export default async function AdminMediaPage() {
       media={media.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() }))}
       campaigns={campaigns}
       defaultImageDuration={settings.defaultImageDuration}
+      uploadMaxBytes={settings.uploadMaxBytes}
     />
   );
 }

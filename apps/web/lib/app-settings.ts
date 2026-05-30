@@ -1,10 +1,14 @@
 import { prisma } from "@vaart/database";
+import { DEFAULT_MAX_UPLOAD_BYTES, formatUploadLimit } from "@/lib/media-upload";
+import { resolveLanBaseUrl } from "@/lib/network";
 
 export type AppSettings = {
   heartbeatOfflineSeconds: number;
   playerBaseUrl: string;
   defaultImageDuration: number;
   allowLocalUploads: boolean;
+  uploadMaxBytes: number;
+  playerRefreshSeconds: number;
 };
 
 const defaults: AppSettings = {
@@ -12,9 +16,11 @@ const defaults: AppSettings = {
   playerBaseUrl:
     process.env.NEXT_PUBLIC_PLAYER_BASE_URL ||
     process.env.NEXTAUTH_URL ||
-    "http://localhost:3000",
+    resolveLanBaseUrl(),
   defaultImageDuration: 10,
   allowLocalUploads: true,
+  uploadMaxBytes: DEFAULT_MAX_UPLOAD_BYTES,
+  playerRefreshSeconds: 15,
 };
 
 const settingKeys = Object.keys(defaults) as (keyof AppSettings)[];
@@ -52,12 +58,19 @@ export async function getAppSettings(): Promise<AppSettings> {
     playerBaseUrl: parseSetting("playerBaseUrl", values.get("playerBaseUrl")),
     defaultImageDuration: parseSetting("defaultImageDuration", values.get("defaultImageDuration")),
     allowLocalUploads: parseSetting("allowLocalUploads", values.get("allowLocalUploads")),
+    uploadMaxBytes: parseSetting("uploadMaxBytes", values.get("uploadMaxBytes")),
+    playerRefreshSeconds: parseSetting("playerRefreshSeconds", values.get("playerRefreshSeconds")),
   };
 }
 
 export function normalizeAppSettings(input: Partial<AppSettings>): AppSettings {
   const heartbeatOfflineSeconds = Math.min(3600, Math.max(15, Number(input.heartbeatOfflineSeconds ?? defaults.heartbeatOfflineSeconds)));
   const defaultImageDuration = Math.min(600, Math.max(1, Number(input.defaultImageDuration ?? defaults.defaultImageDuration)));
+  const uploadMaxBytes = Math.min(
+    DEFAULT_MAX_UPLOAD_BYTES,
+    Math.max(100 * 1024 * 1024, Number(input.uploadMaxBytes ?? defaults.uploadMaxBytes)),
+  );
+  const playerRefreshSeconds = Math.min(300, Math.max(5, Number(input.playerRefreshSeconds ?? defaults.playerRefreshSeconds)));
   const playerBaseUrl = String(input.playerBaseUrl ?? defaults.playerBaseUrl).trim().replace(/\/$/, "");
 
   return {
@@ -68,6 +81,8 @@ export function normalizeAppSettings(input: Partial<AppSettings>): AppSettings {
       typeof input.allowLocalUploads === "boolean"
         ? input.allowLocalUploads
         : defaults.allowLocalUploads,
+    uploadMaxBytes,
+    playerRefreshSeconds,
   };
 }
 
@@ -129,4 +144,8 @@ export function resolvePlayerBaseUrl(
 
 export function playerUrl(settings: AppSettings, serial: string, subSerial: string) {
   return `${settings.playerBaseUrl}/player?serial=${encodeURIComponent(serial)}&sub=${encodeURIComponent(subSerial)}`;
+}
+
+export function uploadLimitLabel(settings: AppSettings) {
+  return formatUploadLimit(settings.uploadMaxBytes);
 }

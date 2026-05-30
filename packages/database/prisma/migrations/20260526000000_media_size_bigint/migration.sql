@@ -1,0 +1,2 @@
+ALTER TABLE "Media"
+ALTER COLUMN "sizeBytes" TYPE BIGINT;

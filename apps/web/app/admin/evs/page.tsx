@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminDisplayUnitCreate } from "@/components/admin-display-unit-create";
 import { getAppSettings, playerUrl, resolvePlayerBaseUrl } from "@/lib/app-settings";
 import { DeleteEVButton } from "@/components/delete-ev-button";
+import { resolveLanBaseUrl } from "@/lib/network";
 
 export default async function EVsPage() {
   const headerStore = await headers();
@@ -26,7 +27,10 @@ export default async function EVsPage() {
   ]);
   const runtimePlayerSettings = {
     ...settings,
-    playerBaseUrl: resolvePlayerBaseUrl(settings, requestOrigin),
+    playerBaseUrl: resolvePlayerBaseUrl(
+      settings,
+      requestOrigin && !requestOrigin.includes("0.0.0.0") ? requestOrigin : resolveLanBaseUrl(),
+    ),
   };
 
   return (

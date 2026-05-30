@@ -7,7 +7,7 @@ import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ALLOWED_UPLOAD_TYPES, MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from "@/lib/media-upload";
+import { ALLOWED_UPLOAD_TYPES, formatUploadLimit } from "@/lib/media-upload";
 
 type MediaItem = {
   id: string;
@@ -27,6 +27,7 @@ type AdminMediaStudioProps = {
   media: MediaItem[];
   campaigns: CampaignOption[];
   defaultImageDuration: number;
+  uploadMaxBytes: number;
 };
 
 type LinkState = {
@@ -49,7 +50,7 @@ const initialLinkState: LinkState = {
   loopPlayback: false,
 };
 
-export function AdminMediaStudio({ media, campaigns, defaultImageDuration }: AdminMediaStudioProps) {
+export function AdminMediaStudio({ media, campaigns, defaultImageDuration, uploadMaxBytes }: AdminMediaStudioProps) {
   const router = useRouter();
   const [progress, setProgress] = useState(0);
   const [selectedMediaId, setSelectedMediaId] = useState<string>(media[0]?.id ?? "");
@@ -74,8 +75,8 @@ export function AdminMediaStudio({ media, campaigns, defaultImageDuration }: Adm
       return;
     }
 
-    if (file.size > MAX_UPLOAD_BYTES) {
-      toast.error(`File too large. Max ${MAX_UPLOAD_LABEL}`);
+    if (file.size > uploadMaxBytes) {
+      toast.error(`File too large. Max ${formatUploadLimit(uploadMaxBytes)}`);
       return;
     }
 
@@ -193,7 +194,7 @@ export function AdminMediaStudio({ media, campaigns, defaultImageDuration }: Adm
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     multiple: false,
-    maxSize: MAX_UPLOAD_BYTES,
+    maxSize: uploadMaxBytes,
     accept: {
       "video/mp4": [".mp4"],
       "video/webm": [".webm"],
@@ -236,7 +237,7 @@ export function AdminMediaStudio({ media, campaigns, defaultImageDuration }: Adm
           <UploadCloud className="mx-auto h-12 w-12 text-slate-400" />
           <p className="mt-4 text-lg font-semibold text-slate-900">Drop assets for admin-controlled library</p>
           <p className="mt-2 text-sm text-slate-500">
-            Supports image, video, audio up to {MAX_UPLOAD_LABEL}. Campaigners no upload. View-only only.
+            Supports image, video, audio up to {formatUploadLimit(uploadMaxBytes)}. Campaigners no upload. View-only only.
           </p>
         </section>
 

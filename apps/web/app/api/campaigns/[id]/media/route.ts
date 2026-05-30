@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { prisma } from "@vaart/database";
 import { NextRequest, NextResponse } from "next/server";
 import { updateCampaignMediaSettings, upsertCampaignMediaSettings } from "@/lib/campaign-playlist";
+import { broadcastCampaignUpdate } from "@/lib/realtime";
 
 type CampaignRouteContext = {
   params: Promise<{ id: string }>;
@@ -22,6 +23,7 @@ export async function POST(req: NextRequest, context: CampaignRouteContext) {
     duckAmbient,
     loopPlayback,
   });
+  await broadcastCampaignUpdate(id);
   return NextResponse.json(cm, { status: 201 });
 }
 
@@ -38,6 +40,7 @@ export async function DELETE(req: NextRequest, context: CampaignRouteContext) {
   await prisma.campaignMedia.delete({
     where: { campaignId_mediaId: { campaignId: id, mediaId } }
   });
+  await broadcastCampaignUpdate(id);
   return new NextResponse(null, { status: 204 });
 }
 
@@ -58,5 +61,6 @@ export async function PATCH(req: NextRequest, context: CampaignRouteContext) {
     loopPlayback,
   });
 
+  await broadcastCampaignUpdate(id);
   return NextResponse.json(updated);
 }

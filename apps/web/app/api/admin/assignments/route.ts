@@ -1,21 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@vaart/database";
 import { NextResponse } from "next/server";
-import Pusher from "pusher";
-import { getPlaylistForCampaign } from "@/lib/campaign-playlist";
-
-const pusher = new Pusher({
-  appId: process.env.PUSHER_APP_ID!,
-  key: process.env.PUSHER_KEY!,
-  secret: process.env.PUSHER_SECRET!,
-  cluster: process.env.PUSHER_CLUSTER!,
-})
-
-function hasPusherConfig() {
-  return [process.env.PUSHER_APP_ID, process.env.PUSHER_KEY, process.env.PUSHER_SECRET, process.env.PUSHER_CLUSTER].every(
-    (value) => value && value.trim() && value !== "dummy",
-  );
-}
+import { broadcastCampaignUpdate, broadcastTvClear } from "@/lib/realtime";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -42,16 +28,7 @@ export async function POST(req: Request) {
 
   // Push real-time update to the TV
   const tv = assignment.tv;
-  if (hasPusherConfig()) {
-    await pusher.trigger(
-      `tv-${tv.ev.serialNumber}-${tv.subSerial}`,
-      "content-update",
-      {
-        campaignId: assignment.campaign.id,
-        playlist: await getPlaylistForCampaign(assignment.campaign.id),
-      }
-    );
-  }
+  await broadcastCampaignUpdate(assignment.campaign.id);
 
   return NextResponse.json(assignment, { status: 201 });
 }
@@ -74,16 +51,7 @@ export async function DELETE(req: Request) {
     await prisma.screenAssignment.delete({ where: { id } });
 
     // Notify TV that it's unassigned
-    if (hasPusherConfig()) {
-      await pusher.trigger(
-        `tv-${assignment.tv.ev.serialNumber}-${assignment.tv.subSerial}`,
-        "content-update",
-        {
-          campaignId: null,
-          playlist: [],
-        }
-      );
-    }
+    await broadcastTvClear(assignment.tv.ev.serialNumber, assignment.tv.subSerial);
   }
 
   return NextResponse.json({ ok: true });

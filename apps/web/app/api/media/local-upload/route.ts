@@ -6,7 +6,8 @@ import { Readable } from "stream";
 import { finished } from "stream/promises";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
-import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from "@/lib/media-upload";
+import { getAppSettings } from "@/lib/app-settings";
+import { formatUploadLimit } from "@/lib/media-upload";
 
 export const runtime = "nodejs";
 
@@ -23,8 +24,9 @@ export async function PUT(req: NextRequest) {
   }
 
   const contentLength = Number(req.headers.get("content-length") ?? 0);
-  if (!Number.isFinite(contentLength) || contentLength <= 0 || contentLength > MAX_UPLOAD_BYTES) {
-    return NextResponse.json({ error: `File too large (max ${MAX_UPLOAD_LABEL})` }, { status: 400 });
+  const settings = await getAppSettings();
+  if (!Number.isFinite(contentLength) || contentLength <= 0 || contentLength > settings.uploadMaxBytes) {
+    return NextResponse.json({ error: `File too large (max ${formatUploadLimit(settings.uploadMaxBytes)})` }, { status: 400 });
   }
 
   if (!req.body) {

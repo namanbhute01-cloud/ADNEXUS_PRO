@@ -70,7 +70,7 @@ model Media {
   url         String
   type        MediaType
   duration    Int?        // seconds (for video)
-  sizeBytes   Int
+  sizeBytes   BigInt
   status      MediaStatus @default(PROCESSING)
   createdAt   DateTime    @default(now())
 
