@@ -10,7 +10,8 @@ type CampaignRouteContext = {
 
 export async function POST(req: NextRequest, context: CampaignRouteContext) {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const user = session?.user;
+  if (user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await context.params;
   const { mediaId, order, displayTime, playbackLayer, volumePercent, duckAmbient, loopPlayback } = await req.json();
   const cm = await upsertCampaignMediaSettings({
@@ -29,7 +30,8 @@ export async function POST(req: NextRequest, context: CampaignRouteContext) {
 
 export async function DELETE(req: NextRequest, context: CampaignRouteContext) {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const user = session?.user;
+  if (user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await context.params;
   const { mediaId } = await req.json();
 
@@ -46,7 +48,8 @@ export async function DELETE(req: NextRequest, context: CampaignRouteContext) {
 
 export async function PATCH(req: NextRequest, context: CampaignRouteContext) {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const user = session?.user;
+  if (user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await context.params;
   const { mediaId, order, displayTime, playbackLayer, volumePercent, duckAmbient, loopPlayback } = await req.json();
 

@@ -4,12 +4,13 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = session?.user;
+  if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const campaigns = await prisma.campaign.findMany({
     where:
-      session.user.role === "ADMIN"
+      user.role === "ADMIN"
         ? undefined
-        : { assignments: { some: { tv: { ev: { campaignerAccess: { some: { userId: session.user.id } } } } } } },
+        : { assignments: { some: { tv: { ev: { campaignerAccess: { some: { userId: user.id } } } } } } },
     include: {
       _count: { select: { media: true, assignments: true } },
       user: { select: { name: true, email: true } },
@@ -20,21 +21,23 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const user = session?.user;
+  if (user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { name } = await req.json();
   const campaign = await prisma.campaign.create({
-    data: { name, userId: session.user.id }
+    data: { name, userId: user.id }
   });
   return NextResponse.json(campaign, { status: 201 });
 }
 
 export async function PATCH(req: Request) {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const user = session?.user;
+  if (user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id, name, status } = await req.json();
 
   const result = await prisma.campaign.updateMany({
-    where: { id, userId: session.user.id },
+    where: { id, userId: user.id },
     data: { name, status },
   });
 
@@ -48,11 +51,12 @@ export async function PATCH(req: Request) {
 
 export async function DELETE(req: Request) {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const user = session?.user;
+  if (user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await req.json();
 
   const result = await prisma.campaign.deleteMany({
-    where: { id, userId: session.user.id, status: "DRAFT" },
+    where: { id, userId: user.id, status: "DRAFT" },
   });
 
   if (!result.count) {

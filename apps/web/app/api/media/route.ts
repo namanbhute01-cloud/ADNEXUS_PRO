@@ -14,7 +14,8 @@ function serializeMedia<T extends { sizeBytes: bigint }>(media: T) {
 
 export async function POST(req: Request) {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const user = session?.user;
+  if (user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { key, filename, originalName, type, sizeBytes } = await req.json();
   const publicBase = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
 
   const media = await prisma.media.create({
     data: {
-      userId: session.user.id,
+      userId: user.id,
       r2Key: key,
       filename,
       originalName,
@@ -42,7 +43,8 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const user = session?.user;
+  if (user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await req.json();
   if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
@@ -82,11 +84,12 @@ export async function DELETE(req: Request) {
 
 export async function GET() {
   const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = session?.user;
+  if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const media = await prisma.media.findMany({
     where:
-      session.user.role === "ADMIN"
+      user.role === "ADMIN"
         ? undefined
         : {
             campaignMedia: {
@@ -98,7 +101,7 @@ export async function GET() {
                       tv: {
                         ev: {
                           campaignerAccess: {
-                            some: { userId: session.user.id },
+                            some: { userId: user.id },
                           },
                         },
                       },

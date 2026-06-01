@@ -5,8 +5,9 @@ import { Badge } from "@/components/ui/badge";
 
 export default async function DashboardPage() {
   const session = await auth();
+  const user = session?.user;
 
-  if (!session) return null;
+  if (!user?.id) return null;
 
   const [campaigns, media, evs] = await Promise.all([
     prisma.campaign.findMany({
@@ -17,7 +18,7 @@ export default async function DashboardPage() {
             tv: {
               ev: {
                 campaignerAccess: {
-                  some: { userId: session.user.id },
+                  some: { userId: user.id },
                 },
               },
             },
@@ -39,7 +40,7 @@ export default async function DashboardPage() {
                   tv: {
                     ev: {
                       campaignerAccess: {
-                        some: { userId: session.user.id },
+                        some: { userId: user.id },
                       },
                     },
                   },
@@ -51,7 +52,7 @@ export default async function DashboardPage() {
       },
     }),
     prisma.eV.findMany({
-      where: { campaignerAccess: { some: { userId: session.user.id } } },
+      where: { campaignerAccess: { some: { userId: user.id } } },
       include: {
         tvs: {
           include: {
@@ -81,7 +82,7 @@ export default async function DashboardPage() {
       <section className="rounded-[1.75rem] border border-slate-200 bg-[linear-gradient(135deg,#fff7ed,white_45%,#ecfeff)] p-6 shadow-sm md:p-8">
         <p className="text-sm font-medium uppercase tracking-[0.28em] text-cyan-700">Overview</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
-          Welcome back, {session.user.name ?? "Campaigner"}.
+          Welcome back, {user.name ?? "Campaigner"}.
         </h1>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
           View assigned displays, active campaigns, and approved content. Content editing stays admin-only.

@@ -8,10 +8,11 @@ type CampaignSubmitContext = {
 
 export async function POST(_: Request, context: CampaignSubmitContext) {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const user = session?.user;
+  if (user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { id } = await context.params;
   const campaign = await prisma.campaign.findFirst({
-    where: { id, userId: session.user.id },
+    where: { id, userId: user.id },
     include: { media: { include: { media: true } } }
   });
 

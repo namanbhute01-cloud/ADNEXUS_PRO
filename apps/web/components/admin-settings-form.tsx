@@ -8,6 +8,7 @@ import type { AppSettings } from "@/lib/app-settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DEFAULT_MAX_UPLOAD_BYTES, formatUploadLimit } from "@/lib/media-upload";
 
 export function AdminSettingsForm({ settings }: { settings: AppSettings }) {
   const router = useRouter();
@@ -102,12 +103,14 @@ export function AdminSettingsForm({ settings }: { settings: AppSettings }) {
             id="upload-max-bytes"
             type="number"
             min={104857600}
-            max={10737418240}
+            max={DEFAULT_MAX_UPLOAD_BYTES}
             value={form.uploadMaxBytes}
             onChange={(event) => patch("uploadMaxBytes", Number(event.target.value))}
             className="h-10"
           />
-          <p className="text-xs text-slate-500">Supports up to 10737418240 bytes (10GB) when storage + network allow.</p>
+          <p className="text-xs text-slate-500">
+            Supports up to {formatUploadLimit(DEFAULT_MAX_UPLOAD_BYTES)} when storage + network allow.
+          </p>
         </div>
 
         <label className="flex min-h-24 items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">

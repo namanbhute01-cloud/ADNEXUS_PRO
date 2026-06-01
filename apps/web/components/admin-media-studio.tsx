@@ -99,7 +99,7 @@ export function AdminMediaStudio({ media, campaigns, defaultImageDuration, uploa
     const { uploadUrl, key } = await uploadMetaResponse.json();
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", uploadUrl);
-    xhr.timeout = 30 * 60 * 1000;
+    xhr.timeout = 2 * 60 * 60 * 1000;
     xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
@@ -135,6 +135,11 @@ export function AdminMediaStudio({ media, campaigns, defaultImageDuration, uploa
       if (!registerResponse.ok) {
         toast.error("Upload saved but registration failed");
         return;
+      }
+
+      const savedMedia = await registerResponse.json().catch(() => null);
+      if (savedMedia?.id) {
+        setSelectedMediaId(savedMedia.id);
       }
 
       toast.success("Media uploaded");
@@ -290,7 +295,7 @@ export function AdminMediaStudio({ media, campaigns, defaultImageDuration, uploa
         <p className="text-sm font-medium uppercase tracking-[0.28em] text-cyan-700">Playlist linker</p>
         <h2 className="mt-2 text-2xl font-semibold tracking-tight">Attach asset to campaign</h2>
         <p className="mt-2 text-sm text-slate-600">
-          Ambient layer = looping background track. Primary layer = main display item. Duck ambient lowers background when primary item audio should lead.
+          Ambient layer = long-running background track. Primary layer = main display item. Duck ambient lowers background when primary audio should lead. Loop playback keeps same asset on repeat.
         </p>
 
         <div className="mt-6 space-y-4">
@@ -356,7 +361,7 @@ export function AdminMediaStudio({ media, campaigns, defaultImageDuration, uploa
                 }
               />
               <span className="mt-2 block text-xs text-slate-500">
-                Default from settings: {defaultImageDuration}s
+                Default from settings: {defaultImageDuration}s. Images use this value. Videos play until end unless loop is enabled.
               </span>
             </label>
 
@@ -388,7 +393,7 @@ export function AdminMediaStudio({ media, campaigns, defaultImageDuration, uploa
               checked={linkState.loopPlayback}
               onChange={(event) => setLinkState((current) => ({ ...current, loopPlayback: event.target.checked }))}
             />
-            Loop playback for ambient beds or long-running background content
+            Loop playback for same media item. Use for ambient beds, intro loops, or long backgrounds.
           </label>
 
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">

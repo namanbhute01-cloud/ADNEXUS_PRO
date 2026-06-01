@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 
 export default async function MediaPage() {
   const session = await auth();
-  if (!session) return null;
+  const user = session?.user;
+  if (!user?.id) return null;
 
   const media = await prisma.media.findMany({
     where: {
@@ -18,7 +19,7 @@ export default async function MediaPage() {
                 tv: {
                   ev: {
                     campaignerAccess: {
-                      some: { userId: session.user.id },
+                      some: { userId: user.id },
                     },
                   },
                 },

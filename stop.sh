@@ -7,11 +7,11 @@ echo "--- Stopping Adnexus Service using systemctl ---"
 
 sudo systemctl stop "$SERVICE_NAME"
 
-if [ $? -eq 0 ]; then
-  echo "Adnexus service stopped successfully."
-else
+if sudo systemctl is-active --quiet "$SERVICE_NAME"; then
   echo "ERROR: Failed to stop Adnexus service."
+  sudo systemctl status "$SERVICE_NAME" --no-pager --lines=20 || true
   exit 1
 fi
 
+echo "Adnexus service stopped successfully."
 exit 0

@@ -1,4 +1,4 @@
-export const DEFAULT_MAX_UPLOAD_BYTES = 10 * 1024 * 1024 * 1024;
+export const DEFAULT_MAX_UPLOAD_BYTES = 100 * 1024 * 1024 * 1024;
 
 export const ALLOWED_UPLOAD_TYPES = [
   "video/mp4",

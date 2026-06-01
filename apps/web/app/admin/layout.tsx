@@ -21,8 +21,9 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
+  const user = session?.user;
 
-  if (session?.user?.role !== "ADMIN") {
+  if (user?.role !== "ADMIN") {
     redirect("/dashboard");
   }
 
@@ -31,8 +32,8 @@ export default async function AdminLayout({
       appName="VAART-E"
       title="Operations Control"
       subtitle="Manage display units, approve campaign inventory, assign playlists to browser screens, and monitor playback health in real time."
-      userName={session.user.name ?? "Admin"}
-      userRole={session.user.role}
+      userName={user?.name ?? "Admin"}
+      userRole={user?.role ?? "ADMIN"}
       tone="admin"
       navLinks={navLinks}
     >

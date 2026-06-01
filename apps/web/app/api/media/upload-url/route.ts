@@ -25,7 +25,8 @@ function safeFilename(filename: string) {
 
 export async function POST(req: Request) {
   const session = await auth()
-  if (session?.user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const user = session?.user
+  if (user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const { filename, contentType, sizeBytes } = await req.json()
 
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
   }
 
   if (!hasR2Config() && settings.allowLocalUploads) {
-    const key = `uploads/${session.user.id}/${uuid()}-${safeFilename(filename)}`
+    const key = `uploads/${user.id}/${uuid()}-${safeFilename(filename)}`
     return NextResponse.json({
       uploadUrl: `/api/media/local-upload?key=${encodeURIComponent(key)}`,
       key,
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "R2 storage not configured and local uploads disabled" }, { status: 503 })
   }
 
-  const key = `media/${session.user.id}/${uuid()}-${safeFilename(filename)}`
+  const key = `media/${user.id}/${uuid()}-${safeFilename(filename)}`
 
   const r2 = new S3Client({
     region: "auto",
@@ -72,7 +73,7 @@ export async function POST(req: Request) {
     Key: key,
     ContentType: contentType,
     ContentLength: sizeBytes,
-    Metadata: { uploadedBy: session.user.id },
+    Metadata: { uploadedBy: user.id },
   })
 
   const uploadUrl = await getSignedUrl(r2, command, { expiresIn: 3600 })

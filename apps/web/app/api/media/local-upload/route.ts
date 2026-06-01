@@ -13,12 +13,13 @@ export const runtime = "nodejs";
 
 export async function PUT(req: NextRequest) {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") {
+  const user = session?.user;
+  if (user?.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const key = req.nextUrl.searchParams.get("key") ?? "";
-  const expectedPrefix = `uploads/${session.user.id}/`;
+  const expectedPrefix = `uploads/${user.id}/`;
   if (!key.startsWith(expectedPrefix) || key.includes("..") || !/^uploads\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9._-]+$/.test(key)) {
     return NextResponse.json({ error: "Invalid upload key" }, { status: 400 });
   }

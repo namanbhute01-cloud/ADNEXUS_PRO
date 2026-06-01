@@ -25,7 +25,6 @@ type PlayerBootstrap = {
 };
 
 const DUCKED_AMBIENT_VOLUME = 0.2;
-const AUTOPLAY_UNLOCK_EVENTS = ["click", "pointerdown", "touchstart", "keydown"] as const;
 
 export function DevicePlayer() {
   const params = useSearchParams();
@@ -40,9 +39,6 @@ export function DevicePlayer() {
   const ambientMediaRef = useRef<HTMLMediaElement | null>(null);
   const primaryMediaRef = useRef<HTMLMediaElement | null>(null);
   const engineRef = useRef<PlaybackEngine<PlaylistItem> | null>(null);
-  const [audioUnlockNeeded, setAudioUnlockNeeded] = useState(false);
-  const [audioPrimedMuted, setAudioPrimedMuted] = useState(false);
-  const audioUnlockedRef = useRef(false);
 
   const channelName = useMemo(
     () => (serial && subSerial ? `tv-${serial}-${subSerial}` : null),
@@ -59,10 +55,6 @@ export function DevicePlayer() {
 
   const primaryItems = useMemo(
     () => playlist.filter((item) => item.playbackLayer === "PRIMARY").sort((a, b) => a.order - b.order),
-    [playlist],
-  );
-  const hasAudioMedia = useMemo(
-    () => playlist.some((item) => item.type === "AUDIO" || item.type === "VIDEO"),
     [playlist],
   );
 
@@ -224,28 +216,18 @@ export function DevicePlayer() {
 
     try {
       await element.play();
-      setAudioUnlockNeeded(false);
-      if (!element.muted) {
-        setAudioPrimedMuted(false);
-      }
     } catch {
-      if (!audioUnlockedRef.current && allowMutedFallback) {
+      if (allowMutedFallback) {
         try {
           element.muted = true;
           await element.play();
-          setAudioPrimedMuted(true);
-          setAudioUnlockNeeded(true);
-          setStatus("Audio blocked by browser policy - tap or press any key once");
           return;
         } catch {
           // Fall through to blocked UI state.
         }
       }
 
-      if (kind === "ambient" || element.volume > 0 || element.muted) {
-        setAudioUnlockNeeded(true);
-        setStatus("Audio blocked by browser policy - tap or press any key once");
-      }
+      setStatus(`${kind === "ambient" ? "Ambient" : "Primary"} playback degraded`);
     }
   }
 
@@ -270,35 +252,6 @@ export function DevicePlayer() {
   useEffect(() => {
     void tryStartMedia(primaryMediaRef.current, "primary");
   }, [currentPrimary?.id]);
-
-  useEffect(() => {
-    if (!hasAudioMedia) return;
-
-    const unlockAudio = async () => {
-      audioUnlockedRef.current = true;
-
-      [ambientMediaRef.current, primaryMediaRef.current].forEach((element) => {
-        if (element) {
-          element.muted = false;
-        }
-      });
-
-      await Promise.allSettled([
-        tryStartMedia(ambientMediaRef.current, "ambient", { allowMutedFallback: false }),
-        tryStartMedia(primaryMediaRef.current, "primary", { allowMutedFallback: false }),
-      ]);
-    };
-
-    AUTOPLAY_UNLOCK_EVENTS.forEach((eventName) => {
-      window.addEventListener(eventName, unlockAudio, { passive: true });
-    });
-
-    return () => {
-      AUTOPLAY_UNLOCK_EVENTS.forEach((eventName) => {
-        window.removeEventListener(eventName, unlockAudio);
-      });
-    };
-  }, [hasAudioMedia, currentAmbient?.id, currentPrimary?.id]);
 
   if (!serial || !subSerial) {
     return (
@@ -372,7 +325,7 @@ export function DevicePlayer() {
             className="h-full w-full object-cover"
             src={currentPrimary.url}
             autoPlay
-            loop={currentPrimary.loopPlayback}
+            loop={false}
             playsInline
             ref={(element) => {
               primaryMediaRef.current = element;
@@ -393,7 +346,7 @@ export function DevicePlayer() {
             key={currentPrimary.id}
             src={currentPrimary.url}
             autoPlay
-            loop={currentPrimary.loopPlayback}
+            loop={false}
             ref={(element) => {
               primaryMediaRef.current = element;
               if (element) {
@@ -412,56 +365,6 @@ export function DevicePlayer() {
           <ImageFrame item={currentPrimary} onDone={advancePrimary} />
         )}
       </div>
-
-      {audioUnlockNeeded ? (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/45 p-6 backdrop-blur-sm">
-          <button
-            type="button"
-            className="rounded-[2rem] border border-white/20 bg-white/10 px-8 py-5 text-center text-white shadow-2xl"
-            onClick={async () => {
-              audioUnlockedRef.current = true;
-              [ambientMediaRef.current, primaryMediaRef.current].forEach((element) => {
-                if (element) {
-                  element.muted = false;
-                }
-              });
-              await Promise.allSettled([
-                tryStartMedia(ambientMediaRef.current, "ambient", { allowMutedFallback: false }),
-                tryStartMedia(primaryMediaRef.current, "primary", { allowMutedFallback: false }),
-              ]);
-            }}
-          >
-            <span className="block text-xs uppercase tracking-[0.35em] text-slate-300">
-              Audio required
-            </span>
-            <span className="mt-3 block text-2xl font-semibold">Start playback with audio</span>
-            <span className="mt-2 block text-sm text-slate-300">
-              Browser blocked autoplay. Tap, click, touch, or press any key once to enable sound.
-            </span>
-          </button>
-        </div>
-      ) : null}
-
-      {!audioUnlockNeeded && hasAudioMedia ? (
-        <button
-          type="button"
-          className="absolute left-4 top-4 z-20 rounded-full border border-white/20 bg-black/55 px-4 py-2 text-xs tracking-[0.2em] text-white backdrop-blur"
-          onClick={async () => {
-            audioUnlockedRef.current = true;
-            [ambientMediaRef.current, primaryMediaRef.current].forEach((element) => {
-              if (element) {
-                element.muted = false;
-              }
-            });
-            await Promise.allSettled([
-              tryStartMedia(ambientMediaRef.current, "ambient", { allowMutedFallback: false }),
-              tryStartMedia(primaryMediaRef.current, "primary", { allowMutedFallback: false }),
-            ]);
-          }}
-        >
-          {audioPrimedMuted ? "Enable sound" : "Restart audio"}
-        </button>
-      ) : null}
 
       <div className="absolute bottom-4 right-4 z-20 rounded-full border border-white/10 bg-black/40 px-4 py-2 text-xs tracking-[0.2em] text-slate-200 backdrop-blur">
         {status}

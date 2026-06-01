@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function CampaignsPage() {
   const session = await auth();
-  if (!session) return null;
+  const user = session?.user;
+  if (!user?.id) return null;
   const campaigns = await prisma.campaign.findMany({
     where: {
       assignments: {
@@ -13,7 +14,7 @@ export default async function CampaignsPage() {
           tv: {
             ev: {
               campaignerAccess: {
-                some: { userId: session.user.id },
+                some: { userId: user.id },
               },
             },
           },

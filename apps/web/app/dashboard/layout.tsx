@@ -17,12 +17,13 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
+  const user = session?.user;
 
-  if (!session) {
+  if (!user?.id) {
     redirect("/login");
   }
 
-  if (session.user.role === "ADMIN") {
+  if (user.role === "ADMIN") {
     redirect("/admin");
   }
 
@@ -31,8 +32,8 @@ export default async function DashboardLayout({
       appName="VAART-E"
       title="Campaigner Console"
       subtitle="Read-only portal for assigned campaigns, display status, and currently displayed content."
-      userName={session.user.name ?? "Campaigner"}
-      userRole={session.user.role}
+      userName={user.name ?? "Campaigner"}
+      userRole={user.role}
       tone="campaigner"
       navLinks={navLinks}
     >

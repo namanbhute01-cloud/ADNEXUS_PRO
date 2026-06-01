@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function CampaignerDashboardPage() {
   const session = await auth();
-  if (!session) return null;
+  const user = session?.user;
+  if (!user?.id) return null;
 
   const evs = await prisma.eV.findMany({
-    where: { campaignerAccess: { some: { userId: session.user.id } } },
+    where: { campaignerAccess: { some: { userId: user.id } } },
     include: { tvs: { include: { assignments: { where: { isActive: true }, include: { campaign: true } } } } },
     orderBy: { locationName: "asc" },
   });
