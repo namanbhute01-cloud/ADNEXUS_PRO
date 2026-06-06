@@ -11,13 +11,10 @@ const edgeNs = io.of('/edge');
 const adminNs = io.of('/admin');
 const DEV_TOKEN = (process.env.ADNEXUS_DEV_TOKEN || '').trim();
 
-// Static assets (for the player app)
 app.use(express.static(path.join(__dirname, 'apps/player')));
 
-// 1. Streaming Middleware for partial content
 app.get('/stream/:filename', (req, res) => {
     const mediaPath = path.join(__dirname, 'public', 'assets', req.params.filename);
-    
     if (!fs.existsSync(mediaPath)) return res.status(404).send('File not found');
 
     const stat = fs.statSync(mediaPath);
@@ -44,80 +41,42 @@ app.get('/stream/:filename', (req, res) => {
     }
 });
 
-// 2. Master Clock Sync & Orchestration
 let campaignState = {
     startTime: Date.now(),
-    loopDurationMs: 15000, // Total duration for 3 videos, 5 seconds each
+    loopDurationMs: 15000,
     playlistId: "global_loop_01",
-    timeline: {
-        "SCREEN_NODE_01": [
-            { start: 0, end: 5000, type: "video", url: "/stream/promo_part1.mp4" },
-            { start: 5000, end: 10000, type: "video", url: "/stream/promo_part2.mp4" },
-            { start: 10000, end: 15000, type: "video", url: "/stream/promo_part3.mp4" }
-        ]
-    }
+    timeline: {}
 };
 
-function emitCampaignState(target = edgeNs) {
-    target.emit('ORCHESTRATED_CAMPAIGN_SYNC', campaignState);
-}
-
-function pushPlaylist(nodeId, playlist) {
-    edgeNs.to(`node:${nodeId}`).emit('PLAYLIST_UPDATE', playlist);
-}
-
-setInterval(() => {
-    if (Date.now() - campaignState.startTime >= campaignState.loopDurationMs) {
-        campaignState.startTime = Date.now();
-        emitCampaignState();
+function emitCampaignState(target = edgeNs, specificNodeId = null) {
+    if (specificNodeId) {
+        const targetedState = {
+            ...campaignState,
+            timeline: { [specificNodeId]: campaignState.timeline[specificNodeId] || [] }
+        };
+        target.to(`node:${specificNodeId}`).emit('ORCHESTRATED_CAMPAIGN_SYNC', targetedState);
+    } else {
+        edgeNs.sockets.forEach((socket) => {
+            const nodeId = socket.handshake.auth?.nodeId;
+            if (nodeId) emitCampaignState(edgeNs, nodeId);
+        });
     }
-}, 1000);
+}
 
 edgeNs.on('connection', (socket) => {
     const nodeId = socket.handshake.auth?.nodeId;
-    if (!nodeId || typeof nodeId !== 'string') {
-        socket.disconnect(true);
-        return;
-    }
+    if (!nodeId) { socket.disconnect(true); return; }
 
     socket.join(`node:${nodeId}`);
-    socket.data.lastSeen = Date.now();
-
-    const heartbeat = setInterval(() => {
-        socket.emit('EDGE_PING', Date.now());
-    }, 30000);
-
-    socket.on('CLOCK_PING', (clientPing) => {
-        socket.emit('CLOCK_PONG', Date.now(), clientPing);
-    });
-
-    socket.on('EDGE_PONG', () => {
-        socket.data.lastSeen = Date.now();
-    });
-
-    socket.emit('ORCHESTRATED_CAMPAIGN_SYNC', campaignState);
-    socket.on('disconnect', (reason) => {
-        clearInterval(heartbeat);
-        console.log(`[Edge Disconnect] ${nodeId} -> ${reason}`);
-    });
-});
-
-adminNs.use((socket, next) => {
-    if (!DEV_TOKEN || socket.handshake.auth?.token !== DEV_TOKEN) {
-        next(new Error('Forbidden'));
-        return;
-    }
-
-    next();
+    socket.emit('ORCHESTRATED_CAMPAIGN_SYNC', { ...campaignState, timeline: { [nodeId]: campaignState.timeline[nodeId] || [] } });
 });
 
 adminNs.on('connection', (socket) => {
     socket.on('ADMIN_FORCE_LOOP_RESET', () => {
         campaignState.startTime = Date.now();
         emitCampaignState();
-        console.log(`[Admin Action] Global playlist loop reset by admin. New startTime: ${campaignState.startTime}`);
     });
 });
 
-module.exports = { server, pushPlaylist };
 server.listen(3000, () => console.log('AdNexus Master Clock Server running on :3000'));
+module.exports = { server };
