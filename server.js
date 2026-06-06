@@ -14,8 +14,23 @@ const DEV_TOKEN = (process.env.ADNEXUS_DEV_TOKEN || '').trim();
 app.use(express.static(path.join(__dirname, 'apps/player')));
 
 app.get('/stream/:filename', (req, res) => {
-    const mediaPath = path.join(__dirname, 'public', 'assets', req.params.filename);
-    if (!fs.existsSync(mediaPath)) return res.status(404).send('File not found');
+    // Search recursively in public/uploads for the file
+    const findFile = (dir, name) => {
+        const files = fs.readdirSync(dir);
+        for (const file of files) {
+            const p = path.join(dir, file);
+            if (fs.statSync(p).isDirectory()) {
+                const found = findFile(p, name);
+                if (found) return found;
+            } else if (file.endsWith(name)) return p;
+        }
+        return null;
+    };
+
+    const mediaPath = findFile(path.join(__dirname, 'apps/web/public/uploads'), req.params.filename);
+
+    if (!mediaPath || !fs.existsSync(mediaPath)) return res.status(404).send('File not found');
+
 
     const stat = fs.statSync(mediaPath);
     const fileSize = stat.size;
