@@ -4,3 +4,4 @@ node_modules/
 dist/
 .env
 apps/web/.env.runtime
+apps/web/public/uploads/
