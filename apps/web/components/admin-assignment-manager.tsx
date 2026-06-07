@@ -40,11 +40,14 @@ export function AdminAssignmentManager({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [selectedCampaignByTv, setSelectedCampaignByTv] = useState<Record<string, string>>(() => {
-    return Object.fromEntries(
-      evs.flatMap((ev) => ev.tvs.map((tv) => [tv.id, tv.assignment?.campaignId ?? campaigns[0]?.id ?? ""])),
+  const [selectedCampaignByTv, setSelectedCampaignByTv] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const initialState = Object.fromEntries(
+      evs.flatMap((ev) => ev.tvs.map((tv) => [tv.id, tv.assignment?.campaignId ?? ""])),
     );
-  });
+    setSelectedCampaignByTv(initialState);
+  }, [evs]);
 
   const activeCampaigns = useMemo(
     () => campaigns.filter((campaign) => ["DRAFT", "PENDING_REVIEW", "ACTIVE"].includes(campaign.status)),
@@ -127,20 +130,23 @@ export function AdminAssignmentManager({
                     </p>
                   </div>
 
-                  <select
-                    className="h-10 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-sm lg:w-56"
-                    value={selectedCampaignByTv[tv.id] ?? ""}
-                    onChange={(event) =>
-                      setSelectedCampaignByTv((current) => ({ ...current, [tv.id]: event.target.value }))
-                    }
-                  >
-                    <option value="">Select campaign</option>
-                    {activeCampaigns.map((campaign) => (
-                      <option key={campaign.id} value={campaign.id}>
-                        {campaign.name} ({campaign.status})
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex flex-col gap-2">
+                    <select
+                      className="h-10 min-w-0 rounded-lg border border-slate-200 bg-white px-3 text-sm"
+                      value={selectedCampaignByTv[tv.id] ?? ""}
+                      onChange={(event) =>
+                        setSelectedCampaignByTv((current) => ({ ...current, [tv.id]: event.target.value }))
+                      }
+                    >
+                      <option value="">Select campaign</option>
+                      {activeCampaigns.map((campaign) => (
+                        <option key={campaign.id} value={campaign.id}>
+                          {campaign.name} ({campaign.status})
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider">Screen {tv.screenIndex} Track</span>
+                  </div>
 
                   <Button className="h-10 shrink-0" disabled={isPending} onClick={() => assign(tv)}>
                     <MonitorUp className="h-4 w-4" />

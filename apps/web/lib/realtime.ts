@@ -27,6 +27,9 @@ function getPusherClient() {
 }
 
 export async function broadcastCampaignUpdate(campaignId: string) {
+  // Sync with Master Clock (Port 3001)
+  try { await fetch('http://localhost:3001/admin/force-refresh'); } catch(e) {}
+
   const pusher = getPusherClient();
   if (!pusher) return;
 

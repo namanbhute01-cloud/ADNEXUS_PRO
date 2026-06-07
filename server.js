@@ -63,6 +63,22 @@ let campaignState = {
     timeline: {}
 };
 
+async function syncStateFromDb() {
+    try {
+        const res = await fetch('http://localhost:3000/api/admin/assignments');
+        if (res.ok) {
+            const data = await res.json();
+            // Map data to timeline
+            data.forEach(a => {
+                campaignState.timeline[a.nodeId] = [{ start: 0, end: 15000, type: "video", url: "/stream/" + a.campaignId }];
+            });
+        }
+    } catch(e) { console.error("Sync failed", e); }
+}
+
+syncStateFromDb();
+setInterval(syncStateFromDb, 60000); // Poll every minute
+
 function emitCampaignState(target = edgeNs, specificNodeId = null) {
     if (specificNodeId) {
         const targetedState = {
@@ -93,5 +109,5 @@ adminNs.on('connection', (socket) => {
     });
 });
 
-server.listen(3000, () => console.log('AdNexus Master Clock Server running on :3000'));
+server.listen(3001, () => console.log('AdNexus Master Clock Server running on :3001'));
 module.exports = { server };

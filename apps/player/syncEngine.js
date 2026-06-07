@@ -23,6 +23,9 @@ export class MediaSyncEngine {
         this.handleEdgePing = this.handleEdgePing.bind(this);
         this.handleOnline = () => this.handleNetworkTransition(true);
         this.handleOffline = () => this.handleNetworkTransition(false);
+        this.handleVisibility = () => {
+             if (document.visibilityState === 'visible') this.socket.emit('CLOCK_PING', Date.now());
+        };
 
         this.initNetworkListeners();
         this.initSocketListeners();
@@ -32,6 +35,7 @@ export class MediaSyncEngine {
     initNetworkListeners() {
         window.addEventListener('online', this.handleOnline);
         window.addEventListener('offline', this.handleOffline);
+        document.addEventListener('visibilitychange', this.handleVisibility);
     }
 
     handleNetworkTransition(onlineStatus) {
@@ -70,7 +74,7 @@ export class MediaSyncEngine {
         );
 
         if (activeWindow) {
-            let resolvedSource = activeWindow.url;
+            let resolvedSource = activeWindow.url.replace(':3000', ':3001');
             if (!this.isOnline) {
                 if (this.currentAssetUrl === activeWindow.url && this.currentResolvedSource) {
                     resolvedSource = this.currentResolvedSource;
@@ -105,6 +109,7 @@ export class MediaSyncEngine {
             if (!videoElement) {
                 videoElement = document.createElement('video');
                 videoElement.id = 'adnexus-media-element';
+                videoElement.loop = true; // Fix loop stop
                 videoHostContainer.appendChild(videoElement);
                 if (imageElement) imageElement.remove();
             }
@@ -130,40 +135,23 @@ export class MediaSyncEngine {
         const activeMediaElement = videoElement || imageElement;
         if (!activeMediaElement) return;
 
-        if (activeMediaElement.dataset.sourceKey !== resolvedSource) {
+        // Sequence logic: only re-render if source changes OR element was lost
+        const isSourceChanged = activeMediaElement.dataset.sourceKey !== resolvedSource;
+        if (isSourceChanged) {
             activeMediaElement.dataset.sourceKey = resolvedSource;
             activeMediaElement.src = resolvedSource;
+            activeMediaElement.loop = true;
             if (windowConfig.type === "video") {
-                const expectedTime = windowProgressMs / 1000;
-                activeMediaElement.muted = true;
+                activeMediaElement.muted = !window.hasAudioEnabled;
                 activeMediaElement.playsInline = true;
                 activeMediaElement.load();
-                activeMediaElement.onloadedmetadata = () => {
-                    activeMediaElement.currentTime = expectedTime;
-                    activeMediaElement.play().catch(e => {
-                        if (window.devOverlay) {
-                            window.devOverlay.pushLog(`[Video Playback] Autoplay blocked: ${e.message}`);
-                        }
-                    });
-                };
-            }
-            if (windowConfig.type === "fallback_image") {
-                activeMediaElement.alt = "Campaign fallback";
+                activeMediaElement.play().catch(e => console.error("Playback interrupted", e));
             }
             if (window.devOverlay) {
-                window.devOverlay.pushLog(`[Hand-off Matrix] Switching state to asset: ${resolvedSource}`);
+                window.devOverlay.pushLog(`[Sequence] Playback stream: ${resolvedSource}`);
             }
-        } else if (windowConfig.type === "video") {
-            if (activeMediaElement.readyState >= 2) {
-                const expectedTime = windowProgressMs / 1000;
-                const drift = Math.abs(activeMediaElement.currentTime - expectedTime);
-                if (drift > 0.15) {
-                    activeMediaElement.currentTime = expectedTime;
-                    if (window.devOverlay) {
-                        window.devOverlay.pushLog(`[Sync Warning] Drift of ${drift.toFixed(3)}s detected. Re-seeking.`);
-                    }
-                }
-            }
+        } else if (windowConfig.type === "video" && activeMediaElement.paused) {
+             activeMediaElement.play().catch(e => console.error("Resume failed", e));
         }
     }
 
