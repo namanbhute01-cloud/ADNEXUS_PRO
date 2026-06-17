@@ -10,7 +10,7 @@ Group=naman
 WorkingDirectory=/home/naman/adnexus2.0/Adnexus2/apps/web
 EnvironmentFile=-/home/naman/adnexus2.0/Adnexus2/apps/web/.env.runtime
 Environment=NODE_ENV=production
-ExecStart=/bin/bash -lc 'cd /home/naman/adnexus2.0/Adnexus2/apps/web && exec pnpm start'
+ExecStart=/home/naman/adnexus2.0/Adnexus2/start.sh
 Restart=always
 RestartSec=5
 KillSignal=SIGINT
