@@ -9,6 +9,7 @@ export type PlaylistItem = {
   duckAmbient: boolean;
   loopPlayback: boolean;
   originalName: string;
+  sizeBytes: string;
 };
 
 export function buildPlaylist<T extends PlaylistItem>(items: T[]): PlaylistItem[] {

@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   const user = session?.user;
   if (user?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { key, filename, originalName, type, sizeBytes } = await req.json();
+  const { key, filename, originalName, type, sizeBytes, duration } = await req.json();
   const publicBase = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
   const isLocalUpload = typeof key === "string" && key.startsWith("uploads/");
 
@@ -28,6 +28,7 @@ export async function POST(req: Request) {
       filename,
       originalName,
       type,
+      duration,
       sizeBytes: BigInt(Math.trunc(sizeBytes)),
       status: "READY",
       url: isLocalUpload

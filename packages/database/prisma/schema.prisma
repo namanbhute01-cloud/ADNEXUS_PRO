@@ -8,45 +8,37 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  passwordHash  String
-  name          String
-  role          Role      @default(CAMPAIGNER)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  media         Media[]
-  campaigns     Campaign[]
-  evAccess      CampaignerEVAccess[]
-  sessions      UserSession[]
-}
-
-enum Role {
-  ADMIN
-  CAMPAIGNER
+  id           String               @id @default(cuid())
+  email        String               @unique
+  passwordHash String
+  name         String
+  role         Role                 @default(CAMPAIGNER)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  campaigns    Campaign[]
+  evAccess     CampaignerEVAccess[]
+  media        Media[]
+  sessions     UserSession[]
 }
 
 model EV {
-  id           String    @id @default(cuid())
-  serialNumber String    @unique
-  locationName String
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-
-  tvs          TV[]
+  id               String               @id @default(cuid())
+  serialNumber     String               @unique
+  locationName     String
+  isActive         Boolean              @default(true)
+  createdAt        DateTime             @default(now())
   campaignerAccess CampaignerEVAccess[]
+  tvs              TV[]
 }
 
 model TV {
-  id          String    @id @default(cuid())
+  id          String             @id @default(cuid())
   evId        String
-  subSerial   String    @unique
-  screenIndex Int       // 1, 2, or 3
-  createdAt   DateTime  @default(now())
-
-  ev          EV        @relation(fields: [evId], references: [id])
+  subSerial   String             @unique
+  screenIndex Int
+  createdAt   DateTime           @default(now())
   assignments ScreenAssignment[]
+  ev          EV                 @relation(fields: [evId], references: [id])
   heartbeats  TVHeartbeat[]
 }
 
@@ -54,28 +46,96 @@ model CampaignerEVAccess {
   id     String @id @default(cuid())
   userId String
   evId   String
-
-  user   User @relation(fields: [userId], references: [id])
-  ev     EV   @relation(fields: [evId], references: [id])
+  ev     EV     @relation(fields: [evId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
 
   @@unique([userId, evId])
 }
 
 model Media {
-  id          String      @id @default(cuid())
-  userId      String
-  filename    String
-  originalName String
-  r2Key       String      @unique
-  url         String
-  type        MediaType
-  duration    Int?        // seconds (for video)
-  sizeBytes   BigInt
-  status      MediaStatus @default(PROCESSING)
-  createdAt   DateTime    @default(now())
-
-  user        User        @relation(fields: [userId], references: [id])
+  id            String          @id @default(cuid())
+  userId        String
+  filename      String
+  originalName  String
+  r2Key         String          @unique
+  url           String
+  type          MediaType
+  duration      Int?
+  sizeBytes     Int
+  status        MediaStatus     @default(PROCESSING)
+  createdAt     DateTime        @default(now())
   campaignMedia CampaignMedia[]
+  user          User            @relation(fields: [userId], references: [id])
+}
+
+model Campaign {
+  id          String             @id @default(cuid())
+  userId      String
+  name        String
+  status      CampaignStatus     @default(DRAFT)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  user        User               @relation(fields: [userId], references: [id])
+  media       CampaignMedia[]
+  assignments ScreenAssignment[]
+}
+
+model CampaignMedia {
+  id            String        @id @default(cuid())
+  campaignId    String
+  mediaId       String
+  order         Int
+  displayTime   Int           @default(10)
+  duckAmbient   Boolean       @default(true)
+  loopPlayback  Boolean       @default(false)
+  playbackLayer PlaybackLayer @default(PRIMARY)
+  volumePercent Int           @default(100)
+  campaign      Campaign      @relation(fields: [campaignId], references: [id])
+  media         Media         @relation(fields: [mediaId], references: [id])
+
+  @@unique([campaignId, mediaId])
+  @@index([campaignId, order])
+}
+
+model ScreenAssignment {
+  id           String       @id @default(cuid())
+  tvId         String
+  campaignId   String
+  scheduleType ScheduleType @default(CONTINUOUS)
+  startTime    DateTime?
+  endTime      DateTime?
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  campaign     Campaign     @relation(fields: [campaignId], references: [id])
+  tv           TV           @relation(fields: [tvId], references: [id])
+}
+
+model TVHeartbeat {
+  id        String   @id @default(cuid())
+  tvId      String
+  ip        String?
+  timestamp DateTime @default(now())
+  tv        TV       @relation(fields: [tvId], references: [id])
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @default(now())
+}
+
+enum Role {
+  ADMIN
+  CAMPAIGNER
 }
 
 enum MediaType {
@@ -90,19 +150,6 @@ enum MediaStatus {
   FAILED
 }
 
-model Campaign {
-  id          String         @id @default(cuid())
-  userId      String
-  name        String
-  status      CampaignStatus @default(DRAFT)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-
-  user        User           @relation(fields: [userId], references: [id])
-  media       CampaignMedia[]
-  assignments ScreenAssignment[]
-}
-
 enum CampaignStatus {
   DRAFT
   PENDING_REVIEW
@@ -111,70 +158,13 @@ enum CampaignStatus {
   ARCHIVED
 }
 
-model CampaignMedia {
-  id          String   @id @default(cuid())
-  campaignId  String
-  mediaId     String
-  order       Int      // playback order
-  displayTime Int      @default(10) // seconds (for images)
-  playbackLayer PlaybackLayer @default(PRIMARY)
-  volumePercent Int      @default(100)
-  duckAmbient  Boolean   @default(true)
-  loopPlayback Boolean   @default(false)
-
-  campaign    Campaign @relation(fields: [campaignId], references: [id])
-  media       Media    @relation(fields: [mediaId], references: [id])
-
-  @@unique([campaignId, mediaId])
-  @@index([campaignId, order])
-}
-
 enum PlaybackLayer {
   PRIMARY
   AMBIENT
-}
-
-model ScreenAssignment {
-  id           String       @id @default(cuid())
-  tvId         String
-  campaignId   String
-  scheduleType ScheduleType @default(CONTINUOUS)
-  startTime    DateTime?
-  endTime      DateTime?
-  isActive     Boolean      @default(true)
-  createdAt    DateTime     @default(now())
-
-  tv           TV           @relation(fields: [tvId], references: [id])
-  campaign     Campaign     @relation(fields: [campaignId], references: [id])
 }
 
 enum ScheduleType {
   CONTINUOUS
   SINGLE
   SCHEDULED
-}
-
-model TVHeartbeat {
-  id        String   @id @default(cuid())
-  tvId      String
-  ip        String?
-  timestamp DateTime @default(now())
-
-  tv        TV       @relation(fields: [tvId], references: [id])
-}
-
-model UserSession {
-  id        String   @id @default(cuid())
-  userId    String
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  user      User     @relation(fields: [userId], references: [id])
-}
-
-model AppSetting {
-  key       String   @id
-  value     String
-  updatedAt DateTime @default(now())
 }

@@ -1,6 +1,7 @@
 class AdNexusCacheEngine {
-    constructor(cacheName = "adn-media-v2") {
+    constructor(cacheName = "adn-media-v2", chunkSize = 5 * 1024 * 1024) {
         this.cacheName = cacheName;
+        this.chunkSize = chunkSize;
         this.objectUrlCache = new Map();
     }
 
@@ -26,6 +27,36 @@ class AdNexusCacheEngine {
             console.error(`[Cache Engine] Failed to cache heavy media target over network paths: ${assetUrl}`, error);
             return false;
         }
+    }
+
+    // Downloads a large asset in chunks
+    async cacheChunkedAssetToLocalDisk(assetUrl, fileSize) {
+        const cache = await caches.open(this.cacheName);
+        let bytesDownloaded = 0;
+        let chunkIndex = 0;
+
+        while (bytesDownloaded < fileSize) {
+            const start = bytesDownloaded;
+            const end = Math.min(start + this.chunkSize - 1, fileSize - 1);
+            const chunkUrl = `${assetUrl}?chunk=${chunkIndex}`;
+
+            const existingRecord = await cache.match(chunkUrl);
+            if (!existingRecord) {
+                try {
+                    const response = await fetch(assetUrl, {
+                        headers: { Range: `bytes=${start}-${end}` }
+                    });
+                    if (!response.ok) throw new Error(`Failed to fetch chunk ${chunkIndex}`);
+                    await cache.put(chunkUrl, response);
+                } catch (error) {
+                    console.error(`[Cache Engine] Failed to cache chunk ${chunkIndex}`, error);
+                    return false;
+                }
+            }
+            bytesDownloaded = end + 1;
+            chunkIndex++;
+        }
+        return true;
     }
 
     // Serves a local cache URL reference for the HTML5 player

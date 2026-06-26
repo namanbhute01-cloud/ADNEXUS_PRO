@@ -80,6 +80,7 @@ export function AdminMediaStudio({ media, campaigns, defaultImageDuration, uploa
       return;
     }
 
+    // 1. Get multipart upload URLs
     const uploadMetaResponse = await fetch("/api/media/upload-url", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -92,78 +93,86 @@ export function AdminMediaStudio({ media, campaigns, defaultImageDuration, uploa
 
     if (!uploadMetaResponse.ok) {
       const payload = await uploadMetaResponse.json();
-      toast.error(payload.error ?? "Upload URL failed");
+      toast.error(payload.error ?? "Upload initialization failed");
       return;
     }
 
-    const { uploadUrl, key } = await uploadMetaResponse.json();
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", uploadUrl);
-    xhr.timeout = 2 * 60 * 60 * 1000;
-    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        setProgress(Math.round((event.loaded / event.total) * 100));
-      }
-    };
+    const { uploadId, key, partUrls } = await uploadMetaResponse.json();
+    const PART_SIZE = 5 * 1024 * 1024; // Must match backend PART_SIZE
+    const uploadedParts = [];
 
-    xhr.onload = async () => {
-      if (xhr.status < 200 || xhr.status >= 300) {
-        setProgress(0);
-        toast.error(`Upload failed (${xhr.status})`);
+    // 2. Upload chunks in parallel
+    try {
+        const uploadPromises = partUrls.map(async (part: { partNumber: number; url: string }) => {
+            const start = (part.partNumber - 1) * PART_SIZE;
+            const end = Math.min(start + PART_SIZE, file.size);
+            const chunk = file.slice(start, end);
+
+            const res = await fetch(part.url, {
+                method: "PUT",
+                body: chunk,
+            });
+
+            if (!res.ok) throw new Error(`Failed to upload part ${part.partNumber}`);
+            
+            const etag = res.headers.get("ETag");
+            if (!etag) throw new Error(`Missing ETag for part ${part.partNumber}`);
+            
+            uploadedParts.push({ ETag: etag, PartNumber: part.partNumber });
+            setProgress(Math.round((uploadedParts.length / partUrls.length) * 100));
+        });
+
+        await Promise.all(uploadPromises);
+    } catch (e) {
+        toast.error("Chunk upload failed");
         return;
-      }
+    }
 
-      const type = file.type.startsWith("video")
-        ? "VIDEO"
-        : file.type.startsWith("audio")
-          ? "AUDIO"
-          : "IMAGE";
+    // 3. Finalize upload
+    const completeResponse = await fetch("/api/media/upload-url", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        key,
+        uploadId,
+        parts: uploadedParts.sort((a, b) => a.PartNumber - b.PartNumber),
+      }),
+    });
 
-      const registerResponse = await fetch("/api/media", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          key,
-          filename: file.name,
-          originalName: file.name,
-          type,
-          sizeBytes: file.size,
-        }),
-      });
+    if (!completeResponse.ok) {
+      toast.error("Upload completion failed");
+      return;
+    }
 
-      if (!registerResponse.ok) {
-        toast.error("Upload saved but registration failed");
-        return;
-      }
+    // Register in DB
+    const type = file.type.startsWith("video") ? "VIDEO" : file.type.startsWith("audio") ? "AUDIO" : "IMAGE";
+    const registerResponse = await fetch("/api/media", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        key,
+        filename: file.name,
+        originalName: file.name,
+        type,
+        sizeBytes: file.size,
+        duration: 0, // Placeholder
+      }),
+    });
 
-      const savedMedia = await registerResponse.json().catch(() => null);
-      if (savedMedia?.id) {
-        setSelectedMediaId(savedMedia.id);
-      }
 
-      toast.success("Media uploaded");
-      setProgress(0);
-      startTransition(() => router.refresh());
-    };
+    if (!registerResponse.ok) {
+      toast.error("Upload saved but registration failed");
+      return;
+    }
 
-    xhr.onerror = () => {
-      setProgress(0);
-      toast.error("Upload failed");
-    };
+    const savedMedia = await registerResponse.json().catch(() => null);
+    if (savedMedia?.id) {
+      setSelectedMediaId(savedMedia.id);
+    }
 
-    xhr.onabort = () => {
-      setProgress(0);
-      toast.error("Upload aborted");
-    };
-
-    xhr.ontimeout = () => {
-      setProgress(0);
-      toast.error("Upload timed out");
-    };
-
-    setProgress(1);
-    xhr.send(file);
+    toast.success("Media uploaded");
+    setProgress(0);
+    startTransition(() => router.refresh());
   }
 
   async function attachToCampaign() {

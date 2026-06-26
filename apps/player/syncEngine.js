@@ -26,7 +26,19 @@ export class MediaSyncEngine {
             this.masterLoopStartTime = payload.startTime;
             this.loopDurationMs = payload.loopDurationMs;
             this.myTimelineWindows = payload.timeline[this.screenId] || [];
-            for (let w of this.myTimelineWindows) if (w.url) await this.cacheEngine.cacheAssetToLocalDisk(w.url);
+            
+            for (let w of this.myTimelineWindows) {
+                if (!w.url) continue;
+                
+                // Use sizeBytes from payload if available
+                const size = parseInt(w.sizeBytes || '0', 10);
+                
+                if (size > 500 * 1024 * 1024) { // > 500MB
+                    await this.cacheEngine.cacheChunkedAssetToLocalDisk(w.url, size);
+                } else {
+                    await this.cacheEngine.cacheAssetToLocalDisk(w.url);
+                }
+            }
         });
 
         setInterval(() => {

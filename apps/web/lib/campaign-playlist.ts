@@ -31,7 +31,8 @@ export async function getPlaylistForCampaign(campaignId: string): Promise<Playli
         cm."volumePercent" AS "volumePercent",
         cm."duckAmbient" AS "duckAmbient",
         cm."loopPlayback" AS "loopPlayback",
-        m."originalName" AS "originalName"
+        m."originalName" AS "originalName",
+        m."sizeBytes" AS "sizeBytes"
       FROM "CampaignMedia" cm
       INNER JOIN "Media" m ON m."id" = cm."mediaId"
       WHERE cm."campaignId" = ${campaignId}
